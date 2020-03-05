@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - release/**
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+*
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: "windows-latest"
+            cxx-compiler: cl
+            c-compiler: cl
+            compiler-version: default
+            build-type: Debug
+            libcxx: default
+
+          - os: "windows-latest"
+            cxx-compiler: cl
+            c-compiler: cl
+            compiler-version: default
+            build-type: Release
+            libcxx: default
+
+          - os: "ubuntu-latest"
+            cxx-compiler: g++
+            c-compiler: gcc
+            compiler-version: 9
+            build-type: Debug
+            libcxx: libstdc++11
+
+          - os: "ubuntu-latest"
+            cxx-compiler: g++
+            c-compiler: gcc
+            compiler-version: 9
+            build-type: Release
+            libcxx: libstdc++11
+
+          - os: "ubuntu-latest"
+            cxx-compiler: clang++
+            c-compiler: clang
+            compiler-version: 9
+            build-type: Debug
+            libcxx: libstdc++11
+
+          - os: "ubuntu-latest"
+            cxx-compiler: clang++
+            c-compiler: clang
+            compiler-version: 9
+            build-type: Release
+            libcxx: libstdc++11
+
+          - os: "macos-latest"
+            cxx-compiler: clang++
+            c-compiler: clang
+            compiler-version: default
+            build-type: Debug
+            libcxx: libc++
+
+          - os: "macos-latest"
+            cxx-compiler: clang++
+            c-compiler: clang
+            compiler-version: default
+            build-type: Release
+            libcxx: libc++
+
+    runs-on: ${{ matrix.config.os }}
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Install C++ Problem Matchers
+        uses: Trass3r/setup-cpp@master
+
+      - uses: actions/setup-python@v1
+
+      - name: Install Conan
+        run: |
+          pip3 install conan
+          conan --version
+
+      - name: Setup Conan Remotes
+        run: conan remote add bincrafters https://api.bintray.com/conan/bincrafters/public-conan
+
+      - name: Set CXX and CC
+        shell: pwsh
+        run: |
+          $cxx_compiler = '${{ matrix.config.cxx-compiler }}'
+          $c_compiler = '${{ matrix.config.c-compiler }}'
+          $version = '${{ matrix.config.compiler-version }}'
+
+          if ($version -ne 'default') {
+            $cxx_compiler = "$cxx_compiler-$version"
+            $c_compiler = "$c_compiler-$version"
+          }
+
+          echo "::set-env name=CXX::$cxx_compiler"
+          echo "::set-env name=CC::$c_compiler"
+
+      - name: Create Default Conan Profile
+        shell: pwsh
+        run: |
+          if ($Env:CXX -eq 'cl')
+          {
+            $Env:CXX = ''
+            $Env:CC = ''
+          }
+          conan profile new default --detect
+
+      - name: Build and Install Dependencies
+        shell: pwsh
+        run: |
+          mkdir build
+          cd build
+          if ('${{ matrix.config.libcxx }}' -ne 'default') {
+            conan install .. --build missing -s build_type=${{ matrix.config.build-type }} -pr default -pr ../tools/conan/build_tools -s compiler.libcxx=${{ matrix.config.libcxx }} -g virtualbuildenv
+          }
+          else {
+            conan install .. --build missing -s build_type=${{ matrix.config.build-type }} -pr default -pr ../tools/conan/build_tools -g virtualbuildenv
+          }
+
+      - name: Fix Conan Virtualenv Scripts
+        shell: pwsh
+        run: |
+          Get-ChildItem ./*activate*.ps1 | ForEach-Object {
+            $content = (get-content -Path $_ | Select-String -Pattern '_old_conan_prompt' -NotMatch)
+            Set-Content -Path $_ -Value $content
+          }
+        if: matrix.config.os == 'windows-latest'
+
+      - name: Activate Conan Environment
+        shell: pwsh
+        run: |
+          cd build
+
+          ./activate_build.ps1
+          ./activate.ps1
+
+          Get-ChildItem Env: | ForEach-Object {
+            $name = $_.Name
+            $value = $_.Value
+            echo "::set-env name=$name::$value"
+          }
+        if: matrix.config.os == 'windows-latest'
+
+      - name: Activate Conan Environment
+        shell: bash
+        run: |
+          cd build
+
+          source ./activate_build.sh
+          source ./activate.sh
+
+          while IFS='=' read -r name value ; do
+            echo "::set-env name=$name::$value"
+          done < <(env)
+        if: matrix.config.os != 'windows-latest'
+
+      - name: Build
+        run: |
+          cd build
+          which cmake
+          cmake --version
+
+          cmake .. -GNinja -DCMAKE_BUILD_TYPE:STRING="${{ matrix.config.build-type }}" -DBUILD_TESTS=ON -DWARNINGS_AS_ERRORS=ON -DRUN_CONAN=OFF
+          cmake --build . --config ${{ matrix.config.build-type }}
+
+      - name: Test
+        run: |
+          cd build
+          ctest --output-on-failure -C ${{ matrix.config.build-type }}
