@@ -1,5 +1,7 @@
 pub struct SharpSM83 {
     pub registers: Registers,
+    current_tick: u8,
+    opcode: u8,
 }
 
 pub struct Registers {
@@ -30,7 +32,32 @@ impl SharpSM83 {
                 stack_pointer: 0,
                 program_counter: 0,
             },
+            current_tick: 1,
+            opcode: 0x00,
         }
+    }
+
+    pub fn tick(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            1 => self.write_program_counter(bus),
+            2 => self.read_opcode(bus),
+            3 => self.increment_program_counter(),
+            _ => (),
+        }
+
+        self.current_tick += 1;
+    }
+
+    fn write_program_counter(&mut self, bus: &mut Bus) {
+        bus.address = self.registers.program_counter;
+    }
+
+    fn read_opcode(&mut self, bus: &mut Bus) {
+        self.opcode = bus.data;
+    }
+
+    fn increment_program_counter(&mut self) {
+        self.registers.program_counter += 1;
     }
 }
 
@@ -119,5 +146,63 @@ mod tests {
         assert_eq!(cpu.registers.l, 0);
         assert_eq!(cpu.registers.stack_pointer, 0);
         assert_eq!(cpu.registers.program_counter, 0);
+    }
+
+    #[test]
+    fn should_write_program_counter_to_bus_on_tick_1() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x5555;
+        cpu.tick(&mut bus);
+
+        assert_eq!(bus.address, 0x5555);
+        assert_eq!(bus.mode, ReadWriteMode::Read);
+    }
+
+    #[test]
+    fn should_read_opcode_from_bus_on_tick_2() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.tick(&mut bus);
+
+        bus.data = 0x42;
+        cpu.tick(&mut bus);
+
+        assert_eq!(cpu.opcode, 0x42);
+    }
+
+    #[test]
+    fn should_not_write_to_bus_on_tick_2() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x5555;
+        cpu.tick(&mut bus);
+
+        bus.address = 0x1234;
+        bus.data = 0x42;
+        cpu.tick(&mut bus);
+
+        assert_eq!(bus.address, 0x1234);
+        assert_eq!(bus.data, 0x42);
+    }
+
+    #[test]
+    fn should_increment_the_program_counter_on_tick_3() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x5555;
+
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.registers.program_counter, 0x5555);
+
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.registers.program_counter, 0x5555);
+
+        cpu.tick(&mut bus);
+        assert_eq!(cpu.registers.program_counter, 0x5556);
     }
 }
