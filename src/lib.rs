@@ -1,7 +1,10 @@
+mod opcode;
+use crate::opcode::Opcode;
+
 pub struct SharpSM83 {
     pub registers: Registers,
     current_tick: u8,
-    opcode: u8,
+    opcode: Opcode,
 }
 
 pub struct Registers {
@@ -33,7 +36,7 @@ impl SharpSM83 {
                 program_counter: 0,
             },
             current_tick: 1,
-            opcode: 0x00,
+            opcode: Opcode::NOP,
         }
     }
 
@@ -53,7 +56,7 @@ impl SharpSM83 {
     }
 
     fn read_opcode(&mut self, bus: &mut Bus) {
-        self.opcode = bus.data;
+        self.opcode = Opcode::decode(bus.data);
     }
 
     fn increment_program_counter(&mut self) {
@@ -61,7 +64,7 @@ impl SharpSM83 {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ReadWriteMode {
     Read,
     Write,
@@ -167,10 +170,10 @@ mod tests {
 
         cpu.tick(&mut bus);
 
-        bus.data = 0x42;
+        bus.data = 0x26;
         cpu.tick(&mut bus);
 
-        assert_eq!(cpu.opcode, 0x42);
+        assert_eq!(cpu.opcode, Opcode::decode(0x26));
     }
 
     #[test]
