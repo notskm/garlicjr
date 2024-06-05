@@ -54,12 +54,32 @@ impl Dest8Bit {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
+    use rstest::rstest;
+
     use super::*;
 
     #[test]
     fn should_return_unimplemented_opcode_when_data_is_0xd3() {
         let opcode = Opcode::decode(0xd3);
         assert_eq!(opcode, Opcode::Unimplemented(0xd3));
+    }
+
+    #[rstest]
+    #[case(0xD3)]
+    #[case(0xE3)]
+    #[case(0xE4)]
+    #[case(0xF4)]
+    #[case(0xCB)]
+    #[case(0xEB)]
+    #[case(0xEC)]
+    #[case(0xFC)]
+    #[case(0xDD)]
+    #[case(0xDE)]
+    #[case(0xDF)]
+    fn should_return_unimplemented_opcode(#[case] code: u8) {
+        let opcode = Opcode::decode(code);
+        assert_eq!(opcode, Opcode::Unimplemented(code));
     }
 
     #[test]
