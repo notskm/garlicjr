@@ -106,7 +106,7 @@ fn main() {
 
 fn cpu_window(ui: &imgui::Ui, cpu: &mut SharpSM83, bus: &mut Bus) {
     ui.window("CPU")
-        .size([200.0, 200.0], imgui::Condition::Always)
+        .size([200.0, 200.0], imgui::Condition::FirstUseEver)
         .build(|| input_cpu(ui, cpu, bus));
 }
 
@@ -139,7 +139,7 @@ fn input_cpu(ui: &imgui::Ui, cpu: &mut SharpSM83, bus: &mut Bus) {
 
 fn bus_window(ui: &imgui::Ui, bus: &mut Bus) {
     ui.window("Bus")
-        .size([200.0, 200.0], imgui::Condition::Always)
+        .size([200.0, 200.0], imgui::Condition::FirstUseEver)
         .build(|| input_bus(ui, bus));
 }
 
