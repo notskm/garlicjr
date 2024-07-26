@@ -7,6 +7,9 @@ pub struct SharpSM83 {
     opcode: Opcode,
 }
 
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -45,7 +48,7 @@ impl SharpSM83 {
             1 => self.write_program_counter(bus),
             2 => self.read_opcode(bus),
             3 => self.increment_program_counter(),
-            _ => (),
+            _ => self.execute_opcode(),
         }
 
         self.current_tick += 1;
@@ -61,6 +64,18 @@ impl SharpSM83 {
 
     fn increment_program_counter(&mut self) {
         self.registers.program_counter += 1;
+    }
+
+    fn execute_opcode(&mut self) {
+        match self.opcode {
+            Opcode::NOP => self.no_op(),
+            _ => (),
+        }
+
+        self.current_tick = 0;
+    }
+
+    fn no_op(&mut self) {
     }
 }
 
@@ -141,5 +156,42 @@ mod tests {
 
         cpu.tick(&mut bus);
         assert_eq!(cpu.registers.program_counter, 0x5556);
+    }
+
+    #[test]
+    fn should_do_nothing_on_tick_4_when_opcode_is_no_op() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x5555;
+
+        let mut expected_registers = cpu.registers.clone();
+        expected_registers.program_counter = 0x5556;
+
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+
+        assert_eq!(expected_registers, cpu.registers);
+    }
+
+    #[test]
+    fn should_write_program_counter_after_no_op() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x5555;
+
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+        cpu.tick(&mut bus);
+
+        assert_eq!(bus.address, 0x5555);
+
+        cpu.tick(&mut bus);
+
+        assert_eq!(bus.address, 0x5556);
     }
 }
