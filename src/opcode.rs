@@ -9,11 +9,14 @@ pub enum Opcode {
 impl Opcode {
     #[allow(dead_code)]
     pub fn decode(data: u8) -> Opcode {
-        let top_2 = data & 0b11000000;
-        let bot_4 = data & 0b00001111;
+        if data == 0b00000000 {
+            return Opcode::NOP;
+        }
 
-        match (top_2, bot_4) {
-            (0b00000000, 0b00000000) => Opcode::NOP,
+        let top_2 = data & 0b11000000;
+        let bot_3 = data & 0b00000111;
+
+        match (top_2, bot_3) {
             (0b00000000, 0b00000110) => {
                 let reg_num = (data & 0b00111000) >> 3;
                 let register = Dest8Bit::from_u8(reg_num);
@@ -24,7 +27,7 @@ impl Opcode {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Dest8Bit {
     A,
     B,
@@ -54,8 +57,7 @@ impl Dest8Bit {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
-    use rstest::rstest;
+    use rstest::*;
 
     use super::*;
 
@@ -88,10 +90,20 @@ mod tests {
         assert_eq!(opcode, Opcode::NOP);
     }
 
-    #[test]
-    fn should_return_ldri8_containing_destination_when_data_is_00xxx110() {
-        let opcode = Opcode::decode(0b00100110);
-        assert_eq!(opcode, Opcode::LDRI8(Dest8Bit::H));
+    #[rstest]
+    #[case(Dest8Bit::A, 0b00111110)]
+    #[case(Dest8Bit::B, 0b00000110)]
+    #[case(Dest8Bit::C, 0b00001110)]
+    #[case(Dest8Bit::D, 0b00010110)]
+    #[case(Dest8Bit::E, 0b00011110)]
+    #[case(Dest8Bit::H, 0b00100110)]
+    #[case(Dest8Bit::L, 0b00101110)]
+    fn should_return_ldri8_containing_destination_given_00xxx110(
+        #[case] destination: Dest8Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDRI8(destination));
     }
 
     #[test]
