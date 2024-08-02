@@ -22,6 +22,7 @@
 pub enum Opcode {
     NOP,
     LDRI8(Dest8Bit),
+    LdR8HLAddr,
     Unimplemented(u8),
 }
 
@@ -39,7 +40,11 @@ impl Opcode {
             (0b00000000, 0b00000110) => {
                 let reg_num = (data & 0b00111000) >> 3;
                 let register = Dest8Bit::from_u8(reg_num);
-                Opcode::LDRI8(register)
+                if register == Dest8Bit::HLAddr {
+                    Opcode::LdR8HLAddr
+                } else {
+                    Opcode::LDRI8(register)
+                }
             }
             _ => Opcode::Unimplemented(data),
         }
@@ -123,6 +128,12 @@ mod tests {
     ) {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(opcode, Opcode::LDRI8(destination));
+    }
+
+    #[test]
+    fn should_return_ld_r8_addr_hl_given_00110110() {
+        let opcode = Opcode::decode(0b00110110);
+        assert_eq!(opcode, Opcode::LdR8HLAddr);
     }
 
     #[test]

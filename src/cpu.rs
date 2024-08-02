@@ -88,6 +88,7 @@ impl SharpSM83 {
             Opcode::NOP => self.no_op(),
             Opcode::LDRI8(dest) => self.ld_r_n8(dest, bus),
             Opcode::Unimplemented(_) => {}
+            _ => {}
         }
     }
 
