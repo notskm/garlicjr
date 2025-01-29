@@ -22,6 +22,7 @@
 pub enum Opcode {
     NOP,
     LDRI8(Register8Bit),
+    LDR8R8{source: Register8Bit, destination: Register8Bit},
     LdR8HLAddr,
     Unimplemented(u8),
 }
@@ -33,6 +34,33 @@ impl Opcode {
             return Opcode::NOP;
         }
 
+        let opcode = Self::decode_top_2(data);
+        if let Some(opcode) = opcode {
+            return opcode;
+        }
+
+        let opcode = Self::decode_top_2_bottom_3(data);
+        opcode.unwrap_or_else(|| Opcode::Unimplemented(data))
+    }
+
+    fn decode_top_2(data: u8) -> Option<Opcode> {
+        let top_2 = data & 0b11000000;
+
+        match top_2 {
+            0b01000000 => {
+                let source = data & 0b00000111;
+                let destination = (data >> 3) & 0b00000111;
+
+                let source = Register8Bit::from_u8(source);
+                let destination = Register8Bit::from_u8(destination);
+
+                Some(Opcode::LDR8R8{source, destination})
+            }
+            _ => None,
+        }
+    }
+
+    fn decode_top_2_bottom_3(data: u8) -> Option<Opcode> {
         let top_2 = data & 0b11000000;
         let bot_3 = data & 0b00000111;
 
@@ -41,12 +69,12 @@ impl Opcode {
                 let reg_num = (data & 0b00111000) >> 3;
                 let register = Register8Bit::from_u8(reg_num);
                 if register == Register8Bit::HLAddr {
-                    Opcode::LdR8HLAddr
+                    Some(Opcode::LdR8HLAddr)
                 } else {
-                    Opcode::LDRI8(register)
+                    Some(Opcode::LDRI8(register))
                 }
             }
-            _ => Opcode::Unimplemented(data),
+            _ => None,
         }
     }
 }
@@ -128,6 +156,26 @@ mod tests {
     ) {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(opcode, Opcode::LDRI8(destination));
+    }
+
+    #[rstest]
+    #[case(Register8Bit::A, Register8Bit::A, 0b01111111)]
+    #[case(Register8Bit::A, Register8Bit::B, 0b01000111)]
+    #[case(Register8Bit::A, Register8Bit::C, 0b01001111)]
+    #[case(Register8Bit::A, Register8Bit::D, 0b01010111)]
+    #[case(Register8Bit::A, Register8Bit::E, 0b01011111)]
+    #[case(Register8Bit::A, Register8Bit::H, 0b01100111)]
+    #[case(Register8Bit::A, Register8Bit::L, 0b01101111)]
+    #[case(Register8Bit::A, Register8Bit::A, 0b01111111)]
+    #[case(Register8Bit::B, Register8Bit::A, 0b01111000)]
+    #[case(Register8Bit::C, Register8Bit::A, 0b01111001)]
+    #[case(Register8Bit::D, Register8Bit::A, 0b01111010)]
+    #[case(Register8Bit::E, Register8Bit::A, 0b01111011)]
+    #[case(Register8Bit::H, Register8Bit::A, 0b01111100)]
+    #[case(Register8Bit::L, Register8Bit::A, 0b01111101)]
+    fn should_return_ld_r8_r8_given_01xxxxxx(#[case] source: Register8Bit, #[case] destination: Register8Bit, #[case] raw_opcode: u8) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDR8R8{source, destination});
     }
 
     #[test]
