@@ -22,7 +22,10 @@
 pub enum Opcode {
     NOP,
     LDRI8(Register8Bit),
-    LDR8R8{source: Register8Bit, destination: Register8Bit},
+    LDR8R8 {
+        source: Register8Bit,
+        destination: Register8Bit,
+    },
     LdR8HLAddr,
     HALT,
     Unimplemented(u8),
@@ -34,7 +37,7 @@ impl Opcode {
         if data == 0b00000000 {
             return Opcode::NOP;
         }
-        
+
         if data == 0b01110110 {
             return Opcode::HALT;
         }
@@ -59,7 +62,10 @@ impl Opcode {
                 let source = Register8Bit::from_u8(source);
                 let destination = Register8Bit::from_u8(destination);
 
-                Some(Opcode::LDR8R8{source, destination})
+                Some(Opcode::LDR8R8 {
+                    source,
+                    destination,
+                })
             }
             _ => None,
         }
@@ -213,9 +219,19 @@ mod tests {
     #[case(Register8Bit::E, Register8Bit::L, 0b01101011)]
     #[case(Register8Bit::H, Register8Bit::L, 0b01101100)]
     #[case(Register8Bit::L, Register8Bit::L, 0b01101101)]
-    fn should_return_ld_r8_r8_given_01xxxxxx(#[case] source: Register8Bit, #[case] destination: Register8Bit, #[case] raw_opcode: u8) {
+    fn should_return_ld_r8_r8_given_01xxxxxx(
+        #[case] source: Register8Bit,
+        #[case] destination: Register8Bit,
+        #[case] raw_opcode: u8,
+    ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDR8R8{source, destination});
+        assert_eq!(
+            opcode,
+            Opcode::LDR8R8 {
+                source,
+                destination
+            }
+        );
     }
 
     #[test]

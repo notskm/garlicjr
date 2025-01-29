@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::opcode::{Register8Bit, Opcode};
+use crate::opcode::{Opcode, Register8Bit};
 use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
