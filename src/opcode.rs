@@ -27,6 +27,7 @@ pub enum Opcode {
         destination: Register8Bit,
     },
     LdR8HLAddr,
+    LDR16I16(Register16Bit),
     HALT,
     Unimplemented(u8),
 }
@@ -48,6 +49,11 @@ impl Opcode {
         }
 
         let opcode = Self::decode_top_2_bottom_3(data);
+        if let Some(opcode) = opcode {
+            return opcode;
+        }
+
+        let opcode = Self::decode_top_2_bottom_4(data);
         opcode.unwrap_or_else(|| Opcode::Unimplemented(data))
     }
 
@@ -88,6 +94,20 @@ impl Opcode {
             _ => None,
         }
     }
+
+    fn decode_top_2_bottom_4(data: u8) -> Option<Opcode> {
+        let top_2 = data & 0b11000000;
+        let bot_4 = data & 0b00001111;
+
+        match (top_2, bot_4) {
+            (0b00000000, 0b00000001) => {
+                let reg_num = (data & 0b00110000) >> 4;
+                let register = Register16Bit::from_u8(reg_num);
+                Some(Opcode::LDR16I16(register))
+            }
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -113,6 +133,26 @@ impl Register8Bit {
             5 => Register8Bit::L,
             6 => Register8Bit::HLAddr,
             7 => Register8Bit::A,
+            _ => panic!("Invalid register"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum Register16Bit {
+    BC,
+    DE,
+    HL,
+    SP,
+}
+
+impl Register16Bit {
+    pub fn from_u8(data: u8) -> Register16Bit {
+        match data {
+            0 => Register16Bit::BC,
+            1 => Register16Bit::DE,
+            2 => Register16Bit::HL,
+            3 => Register16Bit::SP,
             _ => panic!("Invalid register"),
         }
     }
@@ -246,6 +286,19 @@ mod tests {
         assert_eq!(opcode, Opcode::HALT);
     }
 
+    #[rstest]
+    #[case(Register16Bit::BC, 0b00000001)]
+    #[case(Register16Bit::DE, 0b00010001)]
+    #[case(Register16Bit::HL, 0b00100001)]
+    #[case(Register16Bit::SP, 0b00110001)]
+    fn should_return_ld_r16_i16_with_destination_given_00xx0001(
+        #[case] destination: Register16Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDR16I16(destination));
+    }
+
     #[test]
     fn should_return_b_when_given_0() {
         let register = Register8Bit::from_u8(0);
@@ -292,5 +345,15 @@ mod tests {
     fn should_return_a_when_given_7() {
         let register = Register8Bit::from_u8(7);
         assert_eq!(register, Register8Bit::A);
+    }
+
+    #[rstest]
+    #[case(0, Register16Bit::BC)]
+    #[case(1, Register16Bit::DE)]
+    #[case(2, Register16Bit::HL)]
+    #[case(3, Register16Bit::SP)]
+    fn should_return_correct_16_bit_register(#[case] data: u8, #[case] expected: Register16Bit) {
+        let register = Register16Bit::from_u8(data);
+        assert_eq!(register, expected);
     }
 }
