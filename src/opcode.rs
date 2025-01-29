@@ -26,6 +26,10 @@ pub enum Opcode {
         source: Register8Bit,
         destination: Register8Bit,
     },
+    LDR8HLAddr(Register8Bit),
+    LDAR16Addr(Register16Bit),
+    LDAHLIAddr,
+    LDAHLDAddr,
     LdR8HLAddr,
     LDR16I16(Register16Bit),
     HALT,
@@ -68,6 +72,16 @@ impl Opcode {
                 let source = Register8Bit::from_u8(source);
                 let destination = Register8Bit::from_u8(destination);
 
+                // This is a special case because LD [HL], [HL] results in 01110110, which is the
+                // HALT opcode.
+                if source == Register8Bit::HLAddr && destination == Register8Bit::HLAddr {
+                    return Some(Opcode::HALT);
+                }
+
+                if source == Register8Bit::HLAddr {
+                    return Some(Opcode::LDR8HLAddr(destination));
+                }
+
                 Some(Opcode::LDR8R8 {
                     source,
                     destination,
@@ -104,6 +118,17 @@ impl Opcode {
                 let reg_num = (data & 0b00110000) >> 4;
                 let register = Register16Bit::from_u8(reg_num);
                 Some(Opcode::LDR16I16(register))
+            }
+            (0b00000000, 0b00001010) => {
+                let source = (data & 0b00110000) >> 4;
+                let source = Register16BitMemory::from_u8(source);
+
+                match source {
+                    Register16BitMemory::HLI => Some(Opcode::LDAHLIAddr),
+                    Register16BitMemory::HLD => Some(Opcode::LDAHLDAddr),
+                    Register16BitMemory::BC => Some(Opcode::LDAR16Addr(Register16Bit::BC)),
+                    Register16BitMemory::DE => Some(Opcode::LDAR16Addr(Register16Bit::DE)),
+                }
             }
             _ => None,
         }
@@ -153,6 +178,26 @@ impl Register16Bit {
             1 => Register16Bit::DE,
             2 => Register16Bit::HL,
             3 => Register16Bit::SP,
+            _ => panic!("Invalid register"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum Register16BitMemory {
+    BC,
+    DE,
+    HLI,
+    HLD,
+}
+
+impl Register16BitMemory {
+    pub fn from_u8(data: u8) -> Register16BitMemory {
+        match data {
+            0 => Register16BitMemory::BC,
+            1 => Register16BitMemory::DE,
+            2 => Register16BitMemory::HLI,
+            3 => Register16BitMemory::HLD,
             _ => panic!("Invalid register"),
         }
     }
@@ -274,6 +319,45 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case(Register16Bit::BC, 0b00001010)]
+    #[case(Register16Bit::DE, 0b00011010)]
+    fn should_return_ld_a_r16_addr_with_source(
+        #[case] source: Register16Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDAR16Addr(source));
+    }
+
+    #[rstest]
+    #[case(Register8Bit::A, 0b01111110)]
+    #[case(Register8Bit::B, 0b01000110)]
+    #[case(Register8Bit::C, 0b01001110)]
+    #[case(Register8Bit::D, 0b01010110)]
+    #[case(Register8Bit::E, 0b01011110)]
+    #[case(Register8Bit::H, 0b01100110)]
+    #[case(Register8Bit::L, 0b01101110)]
+    fn should_return_ld_r8_hl_addr_with_destination(
+        #[case] destination: Register8Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDR8HLAddr(destination));
+    }
+
+    #[test]
+    fn should_return_ld_a_hli_addr_given_00101010() {
+        let opcode = Opcode::decode(0b00101010);
+        assert_eq!(opcode, Opcode::LDAHLIAddr);
+    }
+
+    #[test]
+    fn should_return_ld_a_hld_addr_given_00111010() {
+        let opcode = Opcode::decode(0b00111010);
+        assert_eq!(opcode, Opcode::LDAHLDAddr);
+    }
+
     #[test]
     fn should_return_ld_r8_addr_hl_given_00110110() {
         let opcode = Opcode::decode(0b00110110);
@@ -320,6 +404,19 @@ mod tests {
     #[case(3, Register16Bit::SP)]
     fn should_return_correct_16_bit_register(#[case] data: u8, #[case] expected: Register16Bit) {
         let register = Register16Bit::from_u8(data);
+        assert_eq!(register, expected);
+    }
+
+    #[rstest]
+    #[case(0, Register16BitMemory::BC)]
+    #[case(1, Register16BitMemory::DE)]
+    #[case(2, Register16BitMemory::HLI)]
+    #[case(3, Register16BitMemory::HLD)]
+    fn should_return_correct_16_bit_address_register(
+        #[case] data: u8,
+        #[case] expected: Register16BitMemory,
+    ) {
+        let register = Register16BitMemory::from_u8(data);
         assert_eq!(register, expected);
     }
 }
