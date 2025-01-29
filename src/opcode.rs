@@ -24,6 +24,7 @@ pub enum Opcode {
     LDRI8(Register8Bit),
     LDR8R8{source: Register8Bit, destination: Register8Bit},
     LdR8HLAddr,
+    HALT,
     Unimplemented(u8),
 }
 
@@ -32,6 +33,10 @@ impl Opcode {
     pub fn decode(data: u8) -> Opcode {
         if data == 0b00000000 {
             return Opcode::NOP;
+        }
+        
+        if data == 0b01110110 {
+            return Opcode::HALT;
         }
 
         let opcode = Self::decode_top_2(data);
@@ -217,6 +222,12 @@ mod tests {
     fn should_return_ld_r8_addr_hl_given_00110110() {
         let opcode = Opcode::decode(0b00110110);
         assert_eq!(opcode, Opcode::LdR8HLAddr);
+    }
+
+    #[test]
+    fn should_return_halt_given_01110110() {
+        let opcode = Opcode::decode(0b01110110);
+        assert_eq!(opcode, Opcode::HALT);
     }
 
     #[test]
