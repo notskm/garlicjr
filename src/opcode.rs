@@ -299,52 +299,18 @@ mod tests {
         assert_eq!(opcode, Opcode::LDR16I16(destination));
     }
 
-    #[test]
-    fn should_return_b_when_given_0() {
-        let register = Register8Bit::from_u8(0);
-        assert_eq!(register, Register8Bit::B);
-    }
-
-    #[test]
-    fn should_return_c_when_given_1() {
-        let register = Register8Bit::from_u8(1);
-        assert_eq!(register, Register8Bit::C);
-    }
-
-    #[test]
-    fn should_return_d_when_given_2() {
-        let register = Register8Bit::from_u8(2);
-        assert_eq!(register, Register8Bit::D);
-    }
-
-    #[test]
-    fn should_return_e_when_given_3() {
-        let register = Register8Bit::from_u8(3);
-        assert_eq!(register, Register8Bit::E);
-    }
-
-    #[test]
-    fn should_return_h_when_given_4() {
-        let register = Register8Bit::from_u8(4);
-        assert_eq!(register, Register8Bit::H);
-    }
-
-    #[test]
-    fn should_return_l_when_given_5() {
-        let register = Register8Bit::from_u8(5);
-        assert_eq!(register, Register8Bit::L);
-    }
-
-    #[test]
-    fn should_return_hladdr_when_given_6() {
-        let register = Register8Bit::from_u8(6);
-        assert_eq!(register, Register8Bit::HLAddr);
-    }
-
-    #[test]
-    fn should_return_a_when_given_7() {
-        let register = Register8Bit::from_u8(7);
-        assert_eq!(register, Register8Bit::A);
+    #[rstest]
+    #[case(0, Register8Bit::B)]
+    #[case(1, Register8Bit::C)]
+    #[case(2, Register8Bit::D)]
+    #[case(3, Register8Bit::E)]
+    #[case(4, Register8Bit::H)]
+    #[case(5, Register8Bit::L)]
+    #[case(6, Register8Bit::HLAddr)]
+    #[case(7, Register8Bit::A)]
+    fn should_return_correct_8_bit_register(#[case] data: u8, #[case] expected: Register8Bit) {
+        let register = Register8Bit::from_u8(data);
+        assert_eq!(register, expected);
     }
 
     #[rstest]
