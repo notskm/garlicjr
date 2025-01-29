@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::opcode::{Dest8Bit, Opcode};
+use crate::opcode::{Register8Bit, Opcode};
 use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
@@ -96,7 +96,7 @@ impl SharpSM83 {
         self.current_tick = 0;
     }
 
-    fn ld_r_n8(&mut self, destination: Dest8Bit, bus: &mut Bus) {
+    fn ld_r_n8(&mut self, destination: Register8Bit, bus: &mut Bus) {
         match self.current_tick {
             5 => {
                 bus.mode = ReadWriteMode::Read;
@@ -111,15 +111,15 @@ impl SharpSM83 {
         }
     }
 
-    fn write_to_register(&mut self, dest: Dest8Bit, data: u8) {
+    fn write_to_register(&mut self, dest: Register8Bit, data: u8) {
         match dest {
-            Dest8Bit::A => self.registers.a = data,
-            Dest8Bit::B => self.registers.b = data,
-            Dest8Bit::C => self.registers.c = data,
-            Dest8Bit::D => self.registers.d = data,
-            Dest8Bit::E => self.registers.e = data,
-            Dest8Bit::H => self.registers.h = data,
-            Dest8Bit::L => self.registers.l = data,
+            Register8Bit::A => self.registers.a = data,
+            Register8Bit::B => self.registers.b = data,
+            Register8Bit::C => self.registers.c = data,
+            Register8Bit::D => self.registers.d = data,
+            Register8Bit::E => self.registers.e = data,
+            Register8Bit::H => self.registers.h = data,
+            Register8Bit::L => self.registers.l = data,
             _ => panic!("Tried to write to invalid destination"),
         };
     }
@@ -131,7 +131,7 @@ mod tests {
 
     use super::*;
 
-    use crate::{opcode::Dest8Bit, ReadWriteMode};
+    use crate::{opcode::Register8Bit, ReadWriteMode};
 
     #[test]
     fn should_return_true_when_register_contents_are_the_same() {
@@ -368,15 +368,15 @@ mod tests {
     }
 
     #[rstest]
-    #[case(Dest8Bit::A, 0b00111110)]
-    #[case(Dest8Bit::B, 0b00000110)]
-    #[case(Dest8Bit::C, 0b00001110)]
-    #[case(Dest8Bit::D, 0b00010110)]
-    #[case(Dest8Bit::E, 0b00011110)]
-    #[case(Dest8Bit::H, 0b00100110)]
-    #[case(Dest8Bit::L, 0b00101110)]
+    #[case(Register8Bit::A, 0b00111110)]
+    #[case(Register8Bit::B, 0b00000110)]
+    #[case(Register8Bit::C, 0b00001110)]
+    #[case(Register8Bit::D, 0b00010110)]
+    #[case(Register8Bit::E, 0b00011110)]
+    #[case(Register8Bit::H, 0b00100110)]
+    #[case(Register8Bit::L, 0b00101110)]
     fn should_load_into_given_register_on_tick_8_of_ld_r_n8(
-        #[case] destination: Dest8Bit,
+        #[case] destination: Register8Bit,
         #[case] opcode: u8,
     ) {
         let mut cpu = SharpSM83::new();
@@ -402,13 +402,13 @@ mod tests {
         cpu.tick(&mut bus);
 
         let destination_map = vec![
-            (Dest8Bit::A, cpu.registers.a, registers_before.a),
-            (Dest8Bit::B, cpu.registers.b, registers_before.b),
-            (Dest8Bit::C, cpu.registers.c, registers_before.c),
-            (Dest8Bit::D, cpu.registers.d, registers_before.d),
-            (Dest8Bit::E, cpu.registers.e, registers_before.e),
-            (Dest8Bit::H, cpu.registers.h, registers_before.h),
-            (Dest8Bit::L, cpu.registers.l, registers_before.l),
+            (Register8Bit::A, cpu.registers.a, registers_before.a),
+            (Register8Bit::B, cpu.registers.b, registers_before.b),
+            (Register8Bit::C, cpu.registers.c, registers_before.c),
+            (Register8Bit::D, cpu.registers.d, registers_before.d),
+            (Register8Bit::E, cpu.registers.e, registers_before.e),
+            (Register8Bit::H, cpu.registers.h, registers_before.h),
+            (Register8Bit::L, cpu.registers.l, registers_before.l),
         ];
 
         destination_map
