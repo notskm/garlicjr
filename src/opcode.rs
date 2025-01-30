@@ -30,7 +30,7 @@ pub enum Opcode {
     LDAR16Addr(Register16Bit),
     LDAHLIAddr,
     LDAHLDAddr,
-    LdR8HLAddr,
+    LDHLAddrI8,
     LDR16I16(Register16Bit),
     HALT,
     Unimplemented(u8),
@@ -100,7 +100,7 @@ impl Opcode {
                 let reg_num = (data & 0b00111000) >> 3;
                 let register = Register8Bit::from_u8(reg_num);
                 if register == Register8Bit::HLAddr {
-                    Some(Opcode::LdR8HLAddr)
+                    Some(Opcode::LDHLAddrI8)
                 } else {
                     Some(Opcode::LDRI8(register))
                 }
@@ -359,9 +359,9 @@ mod tests {
     }
 
     #[test]
-    fn should_return_ld_r8_addr_hl_given_00110110() {
+    fn should_return_ld_hl_addr_i8_given_00110110() {
         let opcode = Opcode::decode(0b00110110);
-        assert_eq!(opcode, Opcode::LdR8HLAddr);
+        assert_eq!(opcode, Opcode::LDHLAddrI8);
     }
 
     #[test]
