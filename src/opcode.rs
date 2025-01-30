@@ -33,6 +33,7 @@ pub enum Opcode {
     LDHLAddrI8,
     LDR16I16(Register16Bit),
     LDHLAddrR8(Register8Bit),
+    LDR16AddrA(Register16Bit),
     HALT,
     Unimplemented(u8),
 }
@@ -123,6 +124,15 @@ impl Opcode {
                 let reg_num = (data & 0b00110000) >> 4;
                 let register = Register16Bit::from_u8(reg_num);
                 Some(Opcode::LDR16I16(register))
+            }
+            (0b0000000, 0b00000010) => {
+                let reg_num = (data & 0b00110000) >> 4;
+                let register = Register16BitMemory::from_u8(reg_num);
+                match register {
+                    Register16BitMemory::BC => Some(Opcode::LDR16AddrA(Register16Bit::BC)),
+                    Register16BitMemory::DE => Some(Opcode::LDR16AddrA(Register16Bit::DE)),
+                    _ => None,
+                }
             }
             (0b00000000, 0b00001010) => {
                 let source = (data & 0b00110000) >> 4;
@@ -389,6 +399,17 @@ mod tests {
     ) {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(opcode, Opcode::LDHLAddrR8(source));
+    }
+
+    #[rstest]
+    #[case(Register16Bit::BC, 0b00000010)]
+    #[case(Register16Bit::DE, 0b00010010)]
+    fn should_return_ld_r16_addr_a_with_correct_destination(
+        #[case] destination: Register16Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDR16AddrA(destination));
     }
 
     #[rstest]
