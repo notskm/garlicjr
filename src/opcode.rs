@@ -1,5 +1,5 @@
 /*
-    Copyright 2024 notskm
+    Copyright 2024-2025 notskm
 
     This file is part of garlicjr.
 
