@@ -32,6 +32,7 @@ pub enum Opcode {
     LDAHLDAddr,
     LDHLAddrI8,
     LDR16I16(Register16Bit),
+    LDHLAddrR8(Register8Bit),
     HALT,
     Unimplemented(u8),
 }
@@ -80,6 +81,10 @@ impl Opcode {
 
                 if source == Register8Bit::HLAddr {
                     return Some(Opcode::LDR8HLAddr(destination));
+                }
+
+                if destination == Register8Bit::HLAddr {
+                    return Some(Opcode::LDHLAddrR8(source));
                 }
 
                 Some(Opcode::LDR8R8 {
@@ -368,6 +373,22 @@ mod tests {
     fn should_return_halt_given_01110110() {
         let opcode = Opcode::decode(0b01110110);
         assert_eq!(opcode, Opcode::HALT);
+    }
+
+    #[rstest]
+    #[case(Register8Bit::A, 0b01110111)]
+    #[case(Register8Bit::B, 0b01110000)]
+    #[case(Register8Bit::C, 0b01110001)]
+    #[case(Register8Bit::D, 0b01110010)]
+    #[case(Register8Bit::E, 0b01110011)]
+    #[case(Register8Bit::H, 0b01110100)]
+    #[case(Register8Bit::L, 0b01110101)]
+    fn should_return_ld_hl_addr_r8_with_correct_source(
+        #[case] source: Register8Bit,
+        #[case] raw_opcode: u8,
+    ) {
+        let opcode = Opcode::decode(raw_opcode);
+        assert_eq!(opcode, Opcode::LDHLAddrR8(source));
     }
 
     #[rstest]
