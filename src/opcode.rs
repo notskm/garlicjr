@@ -20,21 +20,21 @@
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
 pub enum Opcode {
-    NOP,
-    LDRI8(Register8Bit),
-    LDR8R8 {
+    Nop,
+    LdReg8Imm8(Register8Bit),
+    LdReg8Reg8 {
         source: Register8Bit,
         destination: Register8Bit,
     },
-    LDR8HLAddr(Register8Bit),
-    LDAR16Addr(Register16Bit),
-    LDAHLIAddr,
-    LDAHLDAddr,
-    LDHLAddrI8,
-    LDR16I16(Register16Bit),
-    LDHLAddrR8(Register8Bit),
-    LDR16AddrA(Register16Bit),
-    HALT,
+    LdReg8HlAddr(Register8Bit),
+    LdAReg16Addr(Register16Bit),
+    LdAHliAddr,
+    LdAHldAddr,
+    LdHlAddrImm8,
+    LdReg16Imm16(Register16Bit),
+    LdHlAddrReg8(Register8Bit),
+    LdReg16AddrA(Register16Bit),
+    Halt,
     Unimplemented(u8),
 }
 
@@ -42,11 +42,11 @@ impl Opcode {
     #[allow(dead_code)]
     pub fn decode(data: u8) -> Opcode {
         if data == 0b00000000 {
-            return Opcode::NOP;
+            return Opcode::Nop;
         }
 
         if data == 0b01110110 {
-            return Opcode::HALT;
+            return Opcode::Halt;
         }
 
         let opcode = Self::decode_top_2(data);
@@ -60,7 +60,7 @@ impl Opcode {
         }
 
         let opcode = Self::decode_top_2_bottom_4(data);
-        opcode.unwrap_or_else(|| Opcode::Unimplemented(data))
+        opcode.unwrap_or(Opcode::Unimplemented(data))
     }
 
     fn decode_top_2(data: u8) -> Option<Opcode> {
@@ -77,18 +77,18 @@ impl Opcode {
                 // This is a special case because LD [HL], [HL] results in 01110110, which is the
                 // HALT opcode.
                 if source == Register8Bit::HLAddr && destination == Register8Bit::HLAddr {
-                    return Some(Opcode::HALT);
+                    return Some(Opcode::Halt);
                 }
 
                 if source == Register8Bit::HLAddr {
-                    return Some(Opcode::LDR8HLAddr(destination));
+                    return Some(Opcode::LdReg8HlAddr(destination));
                 }
 
                 if destination == Register8Bit::HLAddr {
-                    return Some(Opcode::LDHLAddrR8(source));
+                    return Some(Opcode::LdHlAddrReg8(source));
                 }
 
-                Some(Opcode::LDR8R8 {
+                Some(Opcode::LdReg8Reg8 {
                     source,
                     destination,
                 })
@@ -106,9 +106,9 @@ impl Opcode {
                 let reg_num = (data & 0b00111000) >> 3;
                 let register = Register8Bit::from_u8(reg_num);
                 if register == Register8Bit::HLAddr {
-                    Some(Opcode::LDHLAddrI8)
+                    Some(Opcode::LdHlAddrImm8)
                 } else {
-                    Some(Opcode::LDRI8(register))
+                    Some(Opcode::LdReg8Imm8(register))
                 }
             }
             _ => None,
@@ -123,14 +123,14 @@ impl Opcode {
             (0b00000000, 0b00000001) => {
                 let reg_num = (data & 0b00110000) >> 4;
                 let register = Register16Bit::from_u8(reg_num);
-                Some(Opcode::LDR16I16(register))
+                Some(Opcode::LdReg16Imm16(register))
             }
             (0b0000000, 0b00000010) => {
                 let reg_num = (data & 0b00110000) >> 4;
                 let register = Register16BitMemory::from_u8(reg_num);
                 match register {
-                    Register16BitMemory::BC => Some(Opcode::LDR16AddrA(Register16Bit::BC)),
-                    Register16BitMemory::DE => Some(Opcode::LDR16AddrA(Register16Bit::DE)),
+                    Register16BitMemory::BC => Some(Opcode::LdReg16AddrA(Register16Bit::BC)),
+                    Register16BitMemory::DE => Some(Opcode::LdReg16AddrA(Register16Bit::DE)),
                     _ => None,
                 }
             }
@@ -139,10 +139,10 @@ impl Opcode {
                 let source = Register16BitMemory::from_u8(source);
 
                 match source {
-                    Register16BitMemory::HLI => Some(Opcode::LDAHLIAddr),
-                    Register16BitMemory::HLD => Some(Opcode::LDAHLDAddr),
-                    Register16BitMemory::BC => Some(Opcode::LDAR16Addr(Register16Bit::BC)),
-                    Register16BitMemory::DE => Some(Opcode::LDAR16Addr(Register16Bit::DE)),
+                    Register16BitMemory::Hli => Some(Opcode::LdAHliAddr),
+                    Register16BitMemory::Hld => Some(Opcode::LdAHldAddr),
+                    Register16BitMemory::BC => Some(Opcode::LdAReg16Addr(Register16Bit::BC)),
+                    Register16BitMemory::DE => Some(Opcode::LdAReg16Addr(Register16Bit::DE)),
                 }
             }
             _ => None,
@@ -202,8 +202,8 @@ impl Register16Bit {
 pub enum Register16BitMemory {
     BC,
     DE,
-    HLI,
-    HLD,
+    Hli,
+    Hld,
 }
 
 impl Register16BitMemory {
@@ -211,8 +211,8 @@ impl Register16BitMemory {
         match data {
             0 => Register16BitMemory::BC,
             1 => Register16BitMemory::DE,
-            2 => Register16BitMemory::HLI,
-            3 => Register16BitMemory::HLD,
+            2 => Register16BitMemory::Hli,
+            3 => Register16BitMemory::Hld,
             _ => panic!("Invalid register"),
         }
     }
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn should_return_nop_when_data_is_0b00000000() {
         let opcode = Opcode::decode(0b00000000);
-        assert_eq!(opcode, Opcode::NOP);
+        assert_eq!(opcode, Opcode::Nop);
     }
 
     #[rstest]
@@ -266,7 +266,7 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDRI8(destination));
+        assert_eq!(opcode, Opcode::LdReg8Imm8(destination));
     }
 
     #[rstest]
@@ -327,7 +327,7 @@ mod tests {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(
             opcode,
-            Opcode::LDR8R8 {
+            Opcode::LdReg8Reg8 {
                 source,
                 destination
             }
@@ -342,7 +342,7 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDAR16Addr(source));
+        assert_eq!(opcode, Opcode::LdAReg16Addr(source));
     }
 
     #[rstest]
@@ -358,31 +358,31 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDR8HLAddr(destination));
+        assert_eq!(opcode, Opcode::LdReg8HlAddr(destination));
     }
 
     #[test]
     fn should_return_ld_a_hli_addr_given_00101010() {
         let opcode = Opcode::decode(0b00101010);
-        assert_eq!(opcode, Opcode::LDAHLIAddr);
+        assert_eq!(opcode, Opcode::LdAHliAddr);
     }
 
     #[test]
     fn should_return_ld_a_hld_addr_given_00111010() {
         let opcode = Opcode::decode(0b00111010);
-        assert_eq!(opcode, Opcode::LDAHLDAddr);
+        assert_eq!(opcode, Opcode::LdAHldAddr);
     }
 
     #[test]
     fn should_return_ld_hl_addr_i8_given_00110110() {
         let opcode = Opcode::decode(0b00110110);
-        assert_eq!(opcode, Opcode::LDHLAddrI8);
+        assert_eq!(opcode, Opcode::LdHlAddrImm8);
     }
 
     #[test]
     fn should_return_halt_given_01110110() {
         let opcode = Opcode::decode(0b01110110);
-        assert_eq!(opcode, Opcode::HALT);
+        assert_eq!(opcode, Opcode::Halt);
     }
 
     #[rstest]
@@ -398,7 +398,7 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDHLAddrR8(source));
+        assert_eq!(opcode, Opcode::LdHlAddrReg8(source));
     }
 
     #[rstest]
@@ -409,7 +409,7 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDR16AddrA(destination));
+        assert_eq!(opcode, Opcode::LdReg16AddrA(destination));
     }
 
     #[rstest]
@@ -422,7 +422,7 @@ mod tests {
         #[case] raw_opcode: u8,
     ) {
         let opcode = Opcode::decode(raw_opcode);
-        assert_eq!(opcode, Opcode::LDR16I16(destination));
+        assert_eq!(opcode, Opcode::LdReg16Imm16(destination));
     }
 
     #[rstest]
@@ -452,8 +452,8 @@ mod tests {
     #[rstest]
     #[case(0, Register16BitMemory::BC)]
     #[case(1, Register16BitMemory::DE)]
-    #[case(2, Register16BitMemory::HLI)]
-    #[case(3, Register16BitMemory::HLD)]
+    #[case(2, Register16BitMemory::Hli)]
+    #[case(3, Register16BitMemory::Hld)]
     fn should_return_correct_16_bit_address_register(
         #[case] data: u8,
         #[case] expected: Register16BitMemory,

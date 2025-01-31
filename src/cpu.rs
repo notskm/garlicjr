@@ -56,7 +56,7 @@ impl SharpSM83 {
                 program_counter: 0,
             },
             current_tick: 1,
-            opcode: Opcode::NOP,
+            opcode: Opcode::Nop,
         }
     }
 
@@ -85,8 +85,8 @@ impl SharpSM83 {
 
     fn execute_opcode(&mut self, bus: &mut Bus) {
         match self.opcode {
-            Opcode::NOP => self.no_op(),
-            Opcode::LDRI8(dest) => self.ld_r_n8(dest, bus),
+            Opcode::Nop => self.no_op(),
+            Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -125,6 +125,12 @@ impl SharpSM83 {
     }
 }
 
+impl Default for SharpSM83 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::*;
@@ -134,6 +140,7 @@ mod tests {
     use crate::{opcode::Register8Bit, ReadWriteMode};
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn should_return_true_when_register_contents_are_the_same() {
         let lhs = Registers {
             a: 2,
@@ -165,6 +172,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn should_return_false_when_register_contents_differ() {
         let lhs = Registers {
             a: 2,
@@ -215,8 +223,23 @@ mod tests {
     }
 
     #[test]
-    fn initializes_registers_to_0() {
+    fn should_initialize_registers_to_0() {
         let cpu = SharpSM83::new();
+        assert_eq!(cpu.registers.a, 0);
+        assert_eq!(cpu.registers.b, 0);
+        assert_eq!(cpu.registers.c, 0);
+        assert_eq!(cpu.registers.d, 0);
+        assert_eq!(cpu.registers.e, 0);
+        assert_eq!(cpu.registers.f, 0);
+        assert_eq!(cpu.registers.h, 0);
+        assert_eq!(cpu.registers.l, 0);
+        assert_eq!(cpu.registers.stack_pointer, 0);
+        assert_eq!(cpu.registers.program_counter, 0);
+    }
+
+    #[test]
+    fn should_initialize_registers_to_0_by_default() {
+        let cpu = SharpSM83::default();
         assert_eq!(cpu.registers.a, 0);
         assert_eq!(cpu.registers.b, 0);
         assert_eq!(cpu.registers.c, 0);
@@ -401,7 +424,7 @@ mod tests {
         cpu.tick(&mut bus);
         cpu.tick(&mut bus);
 
-        let destination_map = vec![
+        let destination_map = [
             (Register8Bit::A, cpu.registers.a, registers_before.a),
             (Register8Bit::B, cpu.registers.b, registers_before.b),
             (Register8Bit::C, cpu.registers.c, registers_before.c),

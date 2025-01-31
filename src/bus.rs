@@ -39,6 +39,12 @@ impl Bus {
     }
 }
 
+impl Default for Bus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -57,6 +63,24 @@ mod tests {
 
     #[test]
     fn should_initialize_mode_to_read() {
+        let bus = Bus::new();
+        assert_eq!(bus.mode, ReadWriteMode::Read);
+    }
+
+    #[test]
+    fn should_initialize_data_to_0_by_default() {
+        let bus = Bus::default();
+        assert_eq!(bus.data, 0);
+    }
+
+    #[test]
+    fn should_initialize_address_to_0_by_default() {
+        let bus = Bus::new();
+        assert_eq!(bus.address, 0);
+    }
+
+    #[test]
+    fn should_initialize_mode_to_read_by_default() {
         let bus = Bus::new();
         assert_eq!(bus.mode, ReadWriteMode::Read);
     }
