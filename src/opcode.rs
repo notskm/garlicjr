@@ -37,6 +37,7 @@ pub enum Opcode {
     LdHliAddrA,
     LdHldAddrA,
     Halt,
+    Stop,
     Unimplemented(u8),
 }
 
@@ -49,6 +50,10 @@ impl Opcode {
 
         if data == 0b01110110 {
             return Opcode::Halt;
+        }
+
+        if data == 0b00010000 {
+            return Opcode::Stop;
         }
 
         let opcode = Self::decode_top_2(data);
@@ -438,6 +443,12 @@ mod tests {
     ) {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(opcode, Opcode::LdReg16Imm16(destination));
+    }
+
+    #[test]
+    fn should_return_stop_when_given_00010000() {
+        let opcode = Opcode::decode(0b00010000);
+        assert_eq!(opcode, Opcode::Stop);
     }
 
     #[rstest]
