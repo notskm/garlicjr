@@ -34,6 +34,8 @@ pub enum Opcode {
     LdReg16Imm16(Register16Bit),
     LdHlAddrReg8(Register8Bit),
     LdReg16AddrA(Register16Bit),
+    LdHliAddrA,
+    LdHldAddrA,
     Halt,
     Unimplemented(u8),
 }
@@ -131,7 +133,8 @@ impl Opcode {
                 match register {
                     Register16BitMemory::BC => Some(Opcode::LdReg16AddrA(Register16Bit::BC)),
                     Register16BitMemory::DE => Some(Opcode::LdReg16AddrA(Register16Bit::DE)),
-                    _ => None,
+                    Register16BitMemory::Hli => Some(Opcode::LdHliAddrA),
+                    Register16BitMemory::Hld => Some(Opcode::LdHldAddrA),
                 }
             }
             (0b00000000, 0b00001010) => {
@@ -371,6 +374,18 @@ mod tests {
     fn should_return_ld_a_hld_addr_given_00111010() {
         let opcode = Opcode::decode(0b00111010);
         assert_eq!(opcode, Opcode::LdAHldAddr);
+    }
+
+    #[test]
+    fn should_return_ld_hli_addr_a_given_00100010() {
+        let opcode = Opcode::decode(0b00100010);
+        assert_eq!(opcode, Opcode::LdHliAddrA);
+    }
+
+    #[test]
+    fn should_return_ld_hld_addr_a_given_00110010() {
+        let opcode = Opcode::decode(0b00110010);
+        assert_eq!(opcode, Opcode::LdHldAddrA);
     }
 
     #[test]
