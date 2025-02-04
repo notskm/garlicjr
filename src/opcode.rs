@@ -43,6 +43,7 @@ pub enum Opcode {
     IncReg8(Register8Bit),
     IncHlAddr,
     DecReg8(Register8Bit),
+    DecHlAddr,
     Halt,
     Stop,
     Unimplemented(u8),
@@ -144,7 +145,12 @@ impl Opcode {
                 let reg_num = (data & 0b00111000) >> 3;
 
                 let register = Register8Bit::from_u8(reg_num);
-                Some(Opcode::DecReg8(register))
+
+                if register == Register8Bit::HLAddr {
+                    Some(Opcode::DecHlAddr)
+                } else {
+                    Some(Opcode::DecReg8(register))
+                }
             }
             _ => None,
         }
@@ -560,6 +566,12 @@ mod tests {
     fn should_return_inc_r8_given_00xxx101(#[case] register: Register8Bit, #[case] data: u8) {
         let opcode = Opcode::decode(data);
         assert_eq!(opcode, Opcode::DecReg8(register));
+    }
+
+    #[test]
+    fn should_return_dec_hl_addr_given_00110101() {
+        let opcode = Opcode::decode(0b00110101);
+        assert_eq!(opcode, Opcode::DecHlAddr);
     }
 
     #[rstest]
