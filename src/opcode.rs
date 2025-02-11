@@ -46,26 +46,16 @@ pub enum Opcode {
     DecHlAddr,
     Halt,
     Stop,
+    Rlca,
     Unimplemented(u8),
 }
 
 impl Opcode {
     #[allow(dead_code)]
     pub fn decode(data: u8) -> Opcode {
-        if data == 0b00000000 {
-            return Opcode::Nop;
-        }
-
-        if data == 0b01110110 {
-            return Opcode::Halt;
-        }
-
-        if data == 0b00010000 {
-            return Opcode::Stop;
-        }
-
-        if data == 0b00001000 {
-            return Opcode::LdImm16AddrSp;
+        let opcode = Self::decode_whole(data);
+        if let Some(opcode) = opcode {
+            return opcode;
         }
 
         let opcode = Self::decode_top_2(data);
@@ -80,6 +70,17 @@ impl Opcode {
 
         let opcode = Self::decode_top_2_bottom_4(data);
         opcode.unwrap_or(Opcode::Unimplemented(data))
+    }
+
+    fn decode_whole(data: u8) -> Option<Opcode> {
+        match data {
+            0b00000000 => Some(Opcode::Nop),
+            0b01110110 => Some(Opcode::Halt),
+            0b00010000 => Some(Opcode::Stop),
+            0b00001000 => Some(Opcode::LdImm16AddrSp),
+            0b00000111 => Some(Opcode::Rlca),
+            _ => None,
+        }
     }
 
     fn decode_top_2(data: u8) -> Option<Opcode> {
@@ -572,6 +573,12 @@ mod tests {
     fn should_return_dec_hl_addr_given_00110101() {
         let opcode = Opcode::decode(0b00110101);
         assert_eq!(opcode, Opcode::DecHlAddr);
+    }
+
+    #[test]
+    fn should_return_rlca_given_00000111() {
+        let opcode = Opcode::decode(0b00000111);
+        assert_eq!(opcode, Opcode::Rlca);
     }
 
     #[rstest]
