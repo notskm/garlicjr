@@ -49,6 +49,7 @@ pub enum Opcode {
     Rlca,
     Rrca,
     Rla,
+    Rra,
     Unimplemented(u8),
 }
 
@@ -83,6 +84,7 @@ impl Opcode {
             0b00000111 => Some(Opcode::Rlca),
             0b00001111 => Some(Opcode::Rrca),
             0b00010111 => Some(Opcode::Rla),
+            0b00011111 => Some(Opcode::Rra),
             _ => None,
         }
     }
@@ -595,6 +597,12 @@ mod tests {
     fn should_return_rla_given_00010111() {
         let opcode = Opcode::decode(0b00010111);
         assert_eq!(opcode, Opcode::Rla);
+    }
+
+    #[test]
+    fn should_return_rra_given_00011111() {
+        let opcode = Opcode::decode(0b00011111);
+        assert_eq!(opcode, Opcode::Rra);
     }
 
     #[rstest]
