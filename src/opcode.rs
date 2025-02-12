@@ -47,6 +47,7 @@ pub enum Opcode {
     Halt,
     Stop,
     Rlca,
+    Rrca,
     Unimplemented(u8),
 }
 
@@ -79,6 +80,7 @@ impl Opcode {
             0b00010000 => Some(Opcode::Stop),
             0b00001000 => Some(Opcode::LdImm16AddrSp),
             0b00000111 => Some(Opcode::Rlca),
+            0b00001111 => Some(Opcode::Rrca),
             _ => None,
         }
     }
@@ -579,6 +581,12 @@ mod tests {
     fn should_return_rlca_given_00000111() {
         let opcode = Opcode::decode(0b00000111);
         assert_eq!(opcode, Opcode::Rlca);
+    }
+
+    #[test]
+    fn should_return_rrca_given_00001111() {
+        let opcode = Opcode::decode(0b00001111);
+        assert_eq!(opcode, Opcode::Rrca);
     }
 
     #[rstest]
