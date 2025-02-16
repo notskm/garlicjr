@@ -55,6 +55,7 @@ pub enum Opcode {
     Scf,
     Ccf,
     JrImm8,
+    JrCondImm8(Cond),
     Unimplemented(u8),
 }
 
@@ -72,6 +73,11 @@ impl Opcode {
         }
 
         let opcode = Self::decode_top_2_bottom_3(data);
+        if let Some(opcode) = opcode {
+            return opcode;
+        }
+
+        let opcode = Self::decode_top_3_bottom_3(data);
         if let Some(opcode) = opcode {
             return opcode;
         }
@@ -168,6 +174,20 @@ impl Opcode {
                 } else {
                     Some(Opcode::DecReg8(register))
                 }
+            }
+            _ => None,
+        }
+    }
+
+    fn decode_top_3_bottom_3(data: u8) -> Option<Opcode> {
+        let top_3 = data & 0b11100000;
+        let bot_3 = data & 0b00000111;
+
+        match (top_3, bot_3) {
+            (0b00100000, 0b00000000) => {
+                let cond_num = (data & 0b00011000) >> 3;
+                let condition = Cond::from_u8(cond_num);
+                Some(Opcode::JrCondImm8(condition))
             }
             _ => None,
         }
@@ -288,6 +308,26 @@ impl Register16BitMemory {
             2 => Register16BitMemory::Hli,
             3 => Register16BitMemory::Hld,
             _ => panic!("Invalid register"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum Cond {
+    Nz,
+    Z,
+    Nc,
+    C,
+}
+
+impl Cond {
+    fn from_u8(data: u8) -> Cond {
+        match data {
+            0 => Cond::Nz,
+            1 => Cond::Z,
+            2 => Cond::Nc,
+            3 => Cond::C,
+            _ => panic!("Invalid condition"),
         }
     }
 }
@@ -434,6 +474,10 @@ mod tests {
     #[case(0b00110111, Opcode::Scf)]
     #[case(0b00111111, Opcode::Ccf)]
     #[case(0b00011000, Opcode::JrImm8)]
+    #[case(0b00100000, Opcode::JrCondImm8(Cond::Nz))]
+    #[case(0b00101000, Opcode::JrCondImm8(Cond::Z))]
+    #[case(0b00110000, Opcode::JrCondImm8(Cond::Nc))]
+    #[case(0b00111000, Opcode::JrCondImm8(Cond::C))]
     fn should_return_expected_opcode_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
