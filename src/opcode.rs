@@ -54,6 +54,7 @@ pub enum Opcode {
     Cpl,
     Scf,
     Ccf,
+    JrImm8,
     Unimplemented(u8),
 }
 
@@ -93,6 +94,7 @@ impl Opcode {
             0b00101111 => Some(Opcode::Cpl),
             0b00110111 => Some(Opcode::Scf),
             0b00111111 => Some(Opcode::Ccf),
+            0b00011000 => Some(Opcode::JrImm8),
             _ => None,
         }
     }
@@ -431,6 +433,7 @@ mod tests {
     #[case(0b00101111, Opcode::Cpl)]
     #[case(0b00110111, Opcode::Scf)]
     #[case(0b00111111, Opcode::Ccf)]
+    #[case(0b00011000, Opcode::JrImm8)]
     fn should_return_expected_opcode_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
