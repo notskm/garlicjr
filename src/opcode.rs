@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(dead_code)]
 pub enum Opcode {
     Nop,
@@ -59,188 +59,416 @@ pub enum Opcode {
     Unimplemented(u8),
 }
 
+const OPTABLE: [Opcode; 256] = [
+    Opcode::Nop,
+    Opcode::LdReg16Imm16(Register16Bit::BC),
+    Opcode::LdReg16AddrA(Register16Bit::BC),
+    Opcode::IncReg16(Register16Bit::BC),
+    Opcode::IncReg8(Register8Bit::B),
+    Opcode::DecReg8(Register8Bit::B),
+    Opcode::LdReg8Imm8(Register8Bit::B),
+    Opcode::Rlca,
+    Opcode::LdImm16AddrSp,
+    Opcode::AddHlR16(Register16Bit::BC),
+    Opcode::LdAReg16Addr(Register16Bit::BC),
+    Opcode::DecReg16(Register16Bit::BC),
+    Opcode::IncReg8(Register8Bit::C),
+    Opcode::DecReg8(Register8Bit::C),
+    Opcode::LdReg8Imm8(Register8Bit::C),
+    Opcode::Rrca,
+    Opcode::Stop,
+    Opcode::LdReg16Imm16(Register16Bit::DE),
+    Opcode::LdReg16AddrA(Register16Bit::DE),
+    Opcode::IncReg16(Register16Bit::DE),
+    Opcode::IncReg8(Register8Bit::D),
+    Opcode::DecReg8(Register8Bit::D),
+    Opcode::LdReg8Imm8(Register8Bit::D),
+    Opcode::Rla,
+    Opcode::JrImm8,
+    Opcode::AddHlR16(Register16Bit::DE),
+    Opcode::LdAReg16Addr(Register16Bit::DE),
+    Opcode::DecReg16(Register16Bit::DE),
+    Opcode::IncReg8(Register8Bit::E),
+    Opcode::DecReg8(Register8Bit::E),
+    Opcode::LdReg8Imm8(Register8Bit::E),
+    Opcode::Rra,
+    Opcode::JrCondImm8(Cond::Nz),
+    Opcode::LdReg16Imm16(Register16Bit::HL),
+    Opcode::LdHliAddrA,
+    Opcode::IncReg16(Register16Bit::HL),
+    Opcode::IncReg8(Register8Bit::H),
+    Opcode::DecReg8(Register8Bit::H),
+    Opcode::LdReg8Imm8(Register8Bit::H),
+    Opcode::Daa,
+    Opcode::JrCondImm8(Cond::Z),
+    Opcode::AddHlR16(Register16Bit::HL),
+    Opcode::LdAHliAddr,
+    Opcode::DecReg16(Register16Bit::HL),
+    Opcode::IncReg8(Register8Bit::L),
+    Opcode::DecReg8(Register8Bit::L),
+    Opcode::LdReg8Imm8(Register8Bit::L),
+    Opcode::Cpl,
+    Opcode::JrCondImm8(Cond::Nc),
+    Opcode::LdReg16Imm16(Register16Bit::SP),
+    Opcode::LdHldAddrA,
+    Opcode::IncReg16(Register16Bit::SP),
+    Opcode::IncHlAddr,
+    Opcode::DecHlAddr,
+    Opcode::LdHlAddrImm8,
+    Opcode::Scf,
+    Opcode::JrCondImm8(Cond::C),
+    Opcode::AddHlR16(Register16Bit::SP),
+    Opcode::LdAHldAddr,
+    Opcode::DecReg16(Register16Bit::SP),
+    Opcode::IncReg8(Register8Bit::A),
+    Opcode::DecReg8(Register8Bit::A),
+    Opcode::LdReg8Imm8(Register8Bit::A),
+    Opcode::Ccf,
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::B),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::B,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::C),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::C,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::D),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::D,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::E),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::E,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::H),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::H,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::L),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::L,
+    },
+    Opcode::LdHlAddrReg8(Register8Bit::B),
+    Opcode::LdHlAddrReg8(Register8Bit::C),
+    Opcode::LdHlAddrReg8(Register8Bit::D),
+    Opcode::LdHlAddrReg8(Register8Bit::E),
+    Opcode::LdHlAddrReg8(Register8Bit::H),
+    Opcode::LdHlAddrReg8(Register8Bit::L),
+    Opcode::Halt,
+    Opcode::LdHlAddrReg8(Register8Bit::A),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::B,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::C,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::D,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::E,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::H,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::L,
+        destination: Register8Bit::A,
+    },
+    Opcode::LdReg8HlAddr(Register8Bit::A),
+    Opcode::LdReg8Reg8 {
+        source: Register8Bit::A,
+        destination: Register8Bit::A,
+    },
+    Opcode::Unimplemented(0x80),
+    Opcode::Unimplemented(0x81),
+    Opcode::Unimplemented(0x82),
+    Opcode::Unimplemented(0x83),
+    Opcode::Unimplemented(0x84),
+    Opcode::Unimplemented(0x85),
+    Opcode::Unimplemented(0x86),
+    Opcode::Unimplemented(0x87),
+    Opcode::Unimplemented(0x88),
+    Opcode::Unimplemented(0x89),
+    Opcode::Unimplemented(0x8A),
+    Opcode::Unimplemented(0x8B),
+    Opcode::Unimplemented(0x8C),
+    Opcode::Unimplemented(0x8D),
+    Opcode::Unimplemented(0x8E),
+    Opcode::Unimplemented(0x8F),
+    Opcode::Unimplemented(0x90),
+    Opcode::Unimplemented(0x91),
+    Opcode::Unimplemented(0x92),
+    Opcode::Unimplemented(0x93),
+    Opcode::Unimplemented(0x94),
+    Opcode::Unimplemented(0x95),
+    Opcode::Unimplemented(0x96),
+    Opcode::Unimplemented(0x97),
+    Opcode::Unimplemented(0x98),
+    Opcode::Unimplemented(0x99),
+    Opcode::Unimplemented(0x9A),
+    Opcode::Unimplemented(0x9B),
+    Opcode::Unimplemented(0x9C),
+    Opcode::Unimplemented(0x9D),
+    Opcode::Unimplemented(0x9E),
+    Opcode::Unimplemented(0x9F),
+    Opcode::Unimplemented(0xA0),
+    Opcode::Unimplemented(0xA1),
+    Opcode::Unimplemented(0xA2),
+    Opcode::Unimplemented(0xA3),
+    Opcode::Unimplemented(0xA4),
+    Opcode::Unimplemented(0xA5),
+    Opcode::Unimplemented(0xA6),
+    Opcode::Unimplemented(0xA7),
+    Opcode::Unimplemented(0xA8),
+    Opcode::Unimplemented(0xA9),
+    Opcode::Unimplemented(0xAA),
+    Opcode::Unimplemented(0xAB),
+    Opcode::Unimplemented(0xAC),
+    Opcode::Unimplemented(0xAD),
+    Opcode::Unimplemented(0xAE),
+    Opcode::Unimplemented(0xAF),
+    Opcode::Unimplemented(0xB0),
+    Opcode::Unimplemented(0xB1),
+    Opcode::Unimplemented(0xB2),
+    Opcode::Unimplemented(0xB3),
+    Opcode::Unimplemented(0xB4),
+    Opcode::Unimplemented(0xB5),
+    Opcode::Unimplemented(0xB6),
+    Opcode::Unimplemented(0xB7),
+    Opcode::Unimplemented(0xB8),
+    Opcode::Unimplemented(0xB9),
+    Opcode::Unimplemented(0xBA),
+    Opcode::Unimplemented(0xBB),
+    Opcode::Unimplemented(0xBC),
+    Opcode::Unimplemented(0xBD),
+    Opcode::Unimplemented(0xBE),
+    Opcode::Unimplemented(0xBF),
+    Opcode::Unimplemented(0xC0),
+    Opcode::Unimplemented(0xC1),
+    Opcode::Unimplemented(0xC2),
+    Opcode::Unimplemented(0xC3),
+    Opcode::Unimplemented(0xC4),
+    Opcode::Unimplemented(0xC5),
+    Opcode::Unimplemented(0xC6),
+    Opcode::Unimplemented(0xC7),
+    Opcode::Unimplemented(0xC8),
+    Opcode::Unimplemented(0xC9),
+    Opcode::Unimplemented(0xCA),
+    Opcode::Unimplemented(0xCB),
+    Opcode::Unimplemented(0xCC),
+    Opcode::Unimplemented(0xCD),
+    Opcode::Unimplemented(0xCE),
+    Opcode::Unimplemented(0xCF),
+    Opcode::Unimplemented(0xD0),
+    Opcode::Unimplemented(0xD1),
+    Opcode::Unimplemented(0xD2),
+    Opcode::Unimplemented(0xD3),
+    Opcode::Unimplemented(0xD4),
+    Opcode::Unimplemented(0xD5),
+    Opcode::Unimplemented(0xD6),
+    Opcode::Unimplemented(0xD7),
+    Opcode::Unimplemented(0xD8),
+    Opcode::Unimplemented(0xD9),
+    Opcode::Unimplemented(0xDA),
+    Opcode::Unimplemented(0xDB),
+    Opcode::Unimplemented(0xDC),
+    Opcode::Unimplemented(0xDD),
+    Opcode::Unimplemented(0xDE),
+    Opcode::Unimplemented(0xDF),
+    Opcode::Unimplemented(0xE0),
+    Opcode::Unimplemented(0xE1),
+    Opcode::Unimplemented(0xE2),
+    Opcode::Unimplemented(0xE3),
+    Opcode::Unimplemented(0xE4),
+    Opcode::Unimplemented(0xE5),
+    Opcode::Unimplemented(0xE6),
+    Opcode::Unimplemented(0xE7),
+    Opcode::Unimplemented(0xE8),
+    Opcode::Unimplemented(0xE9),
+    Opcode::Unimplemented(0xEA),
+    Opcode::Unimplemented(0xEB),
+    Opcode::Unimplemented(0xEC),
+    Opcode::Unimplemented(0xED),
+    Opcode::Unimplemented(0xEE),
+    Opcode::Unimplemented(0xEF),
+    Opcode::Unimplemented(0xF0),
+    Opcode::Unimplemented(0xF1),
+    Opcode::Unimplemented(0xF2),
+    Opcode::Unimplemented(0xF3),
+    Opcode::Unimplemented(0xF4),
+    Opcode::Unimplemented(0xF5),
+    Opcode::Unimplemented(0xF6),
+    Opcode::Unimplemented(0xF7),
+    Opcode::Unimplemented(0xF8),
+    Opcode::Unimplemented(0xF9),
+    Opcode::Unimplemented(0xFA),
+    Opcode::Unimplemented(0xFB),
+    Opcode::Unimplemented(0xFC),
+    Opcode::Unimplemented(0xFD),
+    Opcode::Unimplemented(0xFE),
+    Opcode::Unimplemented(0xFF),
+];
+
 impl Opcode {
     #[allow(dead_code)]
     pub fn decode(data: u8) -> Opcode {
-        let opcode = Self::decode_whole(data);
-        if let Some(opcode) = opcode {
-            return opcode;
-        }
-
-        let opcode = Self::decode_top_2(data);
-        if let Some(opcode) = opcode {
-            return opcode;
-        }
-
-        let opcode = Self::decode_top_2_bottom_3(data);
-        if let Some(opcode) = opcode {
-            return opcode;
-        }
-
-        let opcode = Self::decode_top_3_bottom_3(data);
-        if let Some(opcode) = opcode {
-            return opcode;
-        }
-
-        let opcode = Self::decode_top_2_bottom_4(data);
-        opcode.unwrap_or(Opcode::Unimplemented(data))
-    }
-
-    fn decode_whole(data: u8) -> Option<Opcode> {
-        match data {
-            0b00000000 => Some(Opcode::Nop),
-            0b01110110 => Some(Opcode::Halt),
-            0b00010000 => Some(Opcode::Stop),
-            0b00001000 => Some(Opcode::LdImm16AddrSp),
-            0b00000111 => Some(Opcode::Rlca),
-            0b00001111 => Some(Opcode::Rrca),
-            0b00010111 => Some(Opcode::Rla),
-            0b00011111 => Some(Opcode::Rra),
-            0b00100111 => Some(Opcode::Daa),
-            0b00101111 => Some(Opcode::Cpl),
-            0b00110111 => Some(Opcode::Scf),
-            0b00111111 => Some(Opcode::Ccf),
-            0b00011000 => Some(Opcode::JrImm8),
-            _ => None,
-        }
-    }
-
-    fn decode_top_2(data: u8) -> Option<Opcode> {
-        let top_2 = data & 0b11000000;
-
-        match top_2 {
-            0b01000000 => {
-                let source = data & 0b00000111;
-                let destination = (data >> 3) & 0b00000111;
-
-                let source = Register8Bit::from_u8(source);
-                let destination = Register8Bit::from_u8(destination);
-
-                // This is a special case because LD [HL], [HL] results in 01110110, which is the
-                // HALT opcode.
-                if source == Register8Bit::HLAddr && destination == Register8Bit::HLAddr {
-                    return Some(Opcode::Halt);
-                }
-
-                if source == Register8Bit::HLAddr {
-                    return Some(Opcode::LdReg8HlAddr(destination));
-                }
-
-                if destination == Register8Bit::HLAddr {
-                    return Some(Opcode::LdHlAddrReg8(source));
-                }
-
-                Some(Opcode::LdReg8Reg8 {
-                    source,
-                    destination,
-                })
-            }
-            _ => None,
-        }
-    }
-
-    fn decode_top_2_bottom_3(data: u8) -> Option<Opcode> {
-        let top_2 = data & 0b11000000;
-        let bot_3 = data & 0b00000111;
-
-        match (top_2, bot_3) {
-            (0b00000000, 0b00000110) => {
-                let reg_num = (data & 0b00111000) >> 3;
-                let register = Register8Bit::from_u8(reg_num);
-                if register == Register8Bit::HLAddr {
-                    Some(Opcode::LdHlAddrImm8)
-                } else {
-                    Some(Opcode::LdReg8Imm8(register))
-                }
-            }
-            (0b00000000, 0b00000100) => {
-                let reg_num = (data & 0b00111000) >> 3;
-
-                let register = Register8Bit::from_u8(reg_num);
-
-                if register == Register8Bit::HLAddr {
-                    Some(Opcode::IncHlAddr)
-                } else {
-                    Some(Opcode::IncReg8(register))
-                }
-            }
-            (0b00000000, 0b00000101) => {
-                let reg_num = (data & 0b00111000) >> 3;
-
-                let register = Register8Bit::from_u8(reg_num);
-
-                if register == Register8Bit::HLAddr {
-                    Some(Opcode::DecHlAddr)
-                } else {
-                    Some(Opcode::DecReg8(register))
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn decode_top_3_bottom_3(data: u8) -> Option<Opcode> {
-        let top_3 = data & 0b11100000;
-        let bot_3 = data & 0b00000111;
-
-        match (top_3, bot_3) {
-            (0b00100000, 0b00000000) => {
-                let cond_num = (data & 0b00011000) >> 3;
-                let condition = Cond::from_u8(cond_num);
-                Some(Opcode::JrCondImm8(condition))
-            }
-            _ => None,
-        }
-    }
-
-    fn decode_top_2_bottom_4(data: u8) -> Option<Opcode> {
-        let top_2 = data & 0b11000000;
-        let bot_4 = data & 0b00001111;
-
-        match (top_2, bot_4) {
-            (0b00000000, 0b00000001) => {
-                let reg_num = (data & 0b00110000) >> 4;
-                let register = Register16Bit::from_u8(reg_num);
-                Some(Opcode::LdReg16Imm16(register))
-            }
-            (0b0000000, 0b00000010) => {
-                let reg_num = (data & 0b00110000) >> 4;
-                let register = Register16BitMemory::from_u8(reg_num);
-                match register {
-                    Register16BitMemory::BC => Some(Opcode::LdReg16AddrA(Register16Bit::BC)),
-                    Register16BitMemory::DE => Some(Opcode::LdReg16AddrA(Register16Bit::DE)),
-                    Register16BitMemory::Hli => Some(Opcode::LdHliAddrA),
-                    Register16BitMemory::Hld => Some(Opcode::LdHldAddrA),
-                }
-            }
-            (0b00000000, 0b00000011) => {
-                let reg_num = (data & 0b00110000) >> 4;
-                let register = Register16Bit::from_u8(reg_num);
-                Some(Opcode::IncReg16(register))
-            }
-            (0b00000000, 0b00001001) => {
-                let reg_num = (data & 0b00110000) >> 4;
-                let register = Register16Bit::from_u8(reg_num);
-                Some(Opcode::AddHlR16(register))
-            }
-            (0b00000000, 0b00001010) => {
-                let source = (data & 0b00110000) >> 4;
-                let source = Register16BitMemory::from_u8(source);
-
-                match source {
-                    Register16BitMemory::Hli => Some(Opcode::LdAHliAddr),
-                    Register16BitMemory::Hld => Some(Opcode::LdAHldAddr),
-                    Register16BitMemory::BC => Some(Opcode::LdAReg16Addr(Register16Bit::BC)),
-                    Register16BitMemory::DE => Some(Opcode::LdAReg16Addr(Register16Bit::DE)),
-                }
-            }
-            (0b00000000, 0b00001011) => {
-                let reg_num = (data & 0b00110000) >> 4;
-                let register = Register16Bit::from_u8(reg_num);
-                Some(Opcode::DecReg16(register))
-            }
-            _ => None,
-        }
+        OPTABLE[data as usize]
     }
 }
 
@@ -253,23 +481,6 @@ pub enum Register8Bit {
     E,
     H,
     L,
-    HLAddr,
-}
-
-impl Register8Bit {
-    pub fn from_u8(data: u8) -> Register8Bit {
-        match data {
-            0 => Register8Bit::B,
-            1 => Register8Bit::C,
-            2 => Register8Bit::D,
-            3 => Register8Bit::E,
-            4 => Register8Bit::H,
-            5 => Register8Bit::L,
-            6 => Register8Bit::HLAddr,
-            7 => Register8Bit::A,
-            _ => panic!("Invalid register"),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -280,56 +491,12 @@ pub enum Register16Bit {
     SP,
 }
 
-impl Register16Bit {
-    pub fn from_u8(data: u8) -> Register16Bit {
-        match data {
-            0 => Register16Bit::BC,
-            1 => Register16Bit::DE,
-            2 => Register16Bit::HL,
-            3 => Register16Bit::SP,
-            _ => panic!("Invalid register"),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum Register16BitMemory {
-    BC,
-    DE,
-    Hli,
-    Hld,
-}
-
-impl Register16BitMemory {
-    pub fn from_u8(data: u8) -> Register16BitMemory {
-        match data {
-            0 => Register16BitMemory::BC,
-            1 => Register16BitMemory::DE,
-            2 => Register16BitMemory::Hli,
-            3 => Register16BitMemory::Hld,
-            _ => panic!("Invalid register"),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Cond {
     Nz,
     Z,
     Nc,
     C,
-}
-
-impl Cond {
-    fn from_u8(data: u8) -> Cond {
-        match data {
-            0 => Cond::Nz,
-            1 => Cond::Z,
-            2 => Cond::Nc,
-            3 => Cond::C,
-            _ => panic!("Invalid condition"),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -478,48 +645,11 @@ mod tests {
     #[case(0b00101000, Opcode::JrCondImm8(Cond::Z))]
     #[case(0b00110000, Opcode::JrCondImm8(Cond::Nc))]
     #[case(0b00111000, Opcode::JrCondImm8(Cond::C))]
-    fn should_return_expected_opcode_given_an_opcode_byte(
+    fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
     ) {
         let opcode = Opcode::decode(raw_opcode);
         assert_eq!(opcode, result);
-    }
-
-    #[rstest]
-    #[case(0, Register8Bit::B)]
-    #[case(1, Register8Bit::C)]
-    #[case(2, Register8Bit::D)]
-    #[case(3, Register8Bit::E)]
-    #[case(4, Register8Bit::H)]
-    #[case(5, Register8Bit::L)]
-    #[case(6, Register8Bit::HLAddr)]
-    #[case(7, Register8Bit::A)]
-    fn should_return_correct_8_bit_register(#[case] data: u8, #[case] expected: Register8Bit) {
-        let register = Register8Bit::from_u8(data);
-        assert_eq!(register, expected);
-    }
-
-    #[rstest]
-    #[case(0, Register16Bit::BC)]
-    #[case(1, Register16Bit::DE)]
-    #[case(2, Register16Bit::HL)]
-    #[case(3, Register16Bit::SP)]
-    fn should_return_correct_16_bit_register(#[case] data: u8, #[case] expected: Register16Bit) {
-        let register = Register16Bit::from_u8(data);
-        assert_eq!(register, expected);
-    }
-
-    #[rstest]
-    #[case(0, Register16BitMemory::BC)]
-    #[case(1, Register16BitMemory::DE)]
-    #[case(2, Register16BitMemory::Hli)]
-    #[case(3, Register16BitMemory::Hld)]
-    fn should_return_correct_16_bit_address_register(
-        #[case] data: u8,
-        #[case] expected: Register16BitMemory,
-    ) {
-        let register = Register16BitMemory::from_u8(data);
-        assert_eq!(register, expected);
     }
 }

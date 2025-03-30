@@ -120,7 +120,6 @@ impl SharpSM83 {
             Register8Bit::E => self.registers.e = data,
             Register8Bit::H => self.registers.h = data,
             Register8Bit::L => self.registers.l = data,
-            _ => panic!("Tried to write to invalid destination"),
         };
     }
 }
