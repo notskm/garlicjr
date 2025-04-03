@@ -58,6 +58,8 @@ pub enum Opcode {
     JrCondImm8(Cond),
     AddAReg8(Register8Bit),
     AddAHlAddr,
+    AdcAReg8(Register8Bit),
+    AdcAHlAddr,
     Unimplemented(u8),
 }
 
@@ -345,14 +347,14 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::AddAReg8(Register8Bit::L),
     Opcode::AddAHlAddr,
     Opcode::AddAReg8(Register8Bit::A),
-    Opcode::Unimplemented(0x88),
-    Opcode::Unimplemented(0x89),
-    Opcode::Unimplemented(0x8A),
-    Opcode::Unimplemented(0x8B),
-    Opcode::Unimplemented(0x8C),
-    Opcode::Unimplemented(0x8D),
-    Opcode::Unimplemented(0x8E),
-    Opcode::Unimplemented(0x8F),
+    Opcode::AdcAReg8(Register8Bit::B),
+    Opcode::AdcAReg8(Register8Bit::C),
+    Opcode::AdcAReg8(Register8Bit::D),
+    Opcode::AdcAReg8(Register8Bit::E),
+    Opcode::AdcAReg8(Register8Bit::H),
+    Opcode::AdcAReg8(Register8Bit::L),
+    Opcode::AdcAHlAddr,
+    Opcode::AdcAReg8(Register8Bit::A),
     Opcode::Unimplemented(0x90),
     Opcode::Unimplemented(0x91),
     Opcode::Unimplemented(0x92),
@@ -655,6 +657,14 @@ mod tests {
     #[case(0b10000101, Opcode::AddAReg8(Register8Bit::L))]
     #[case(0b10000110, Opcode::AddAHlAddr)]
     #[case(0b10000111, Opcode::AddAReg8(Register8Bit::A))]
+    #[case(0b10001000, Opcode::AdcAReg8(Register8Bit::B))]
+    #[case(0b10001001, Opcode::AdcAReg8(Register8Bit::C))]
+    #[case(0b10001010, Opcode::AdcAReg8(Register8Bit::D))]
+    #[case(0b10001011, Opcode::AdcAReg8(Register8Bit::E))]
+    #[case(0b10001100, Opcode::AdcAReg8(Register8Bit::H))]
+    #[case(0b10001101, Opcode::AdcAReg8(Register8Bit::L))]
+    #[case(0b10001110, Opcode::AdcAHlAddr)]
+    #[case(0b10001111, Opcode::AdcAReg8(Register8Bit::A))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
