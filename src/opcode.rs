@@ -120,6 +120,8 @@ pub enum Opcode {
     SwapHlAddr,
     Srl(Register8Bit),
     SrlHlAddr,
+    Bit(u8, Register8Bit),
+    BitHlAddr(u8),
 }
 
 const OPTABLE: [Opcode; 256] = [
@@ -593,70 +595,70 @@ const PREFIX_OPTABLE: [Opcode; 256] = [
     Opcode::Srl(Register8Bit::L),
     Opcode::SrlHlAddr,
     Opcode::Srl(Register8Bit::A),
-    Opcode::Unimplemented(0x40),
-    Opcode::Unimplemented(0x41),
-    Opcode::Unimplemented(0x42),
-    Opcode::Unimplemented(0x43),
-    Opcode::Unimplemented(0x44),
-    Opcode::Unimplemented(0x45),
-    Opcode::Unimplemented(0x46),
-    Opcode::Unimplemented(0x47),
-    Opcode::Unimplemented(0x48),
-    Opcode::Unimplemented(0x49),
-    Opcode::Unimplemented(0x4A),
-    Opcode::Unimplemented(0x4B),
-    Opcode::Unimplemented(0x4C),
-    Opcode::Unimplemented(0x4D),
-    Opcode::Unimplemented(0x4E),
-    Opcode::Unimplemented(0x4F),
-    Opcode::Unimplemented(0x50),
-    Opcode::Unimplemented(0x51),
-    Opcode::Unimplemented(0x52),
-    Opcode::Unimplemented(0x53),
-    Opcode::Unimplemented(0x54),
-    Opcode::Unimplemented(0x55),
-    Opcode::Unimplemented(0x56),
-    Opcode::Unimplemented(0x57),
-    Opcode::Unimplemented(0x58),
-    Opcode::Unimplemented(0x59),
-    Opcode::Unimplemented(0x5A),
-    Opcode::Unimplemented(0x5B),
-    Opcode::Unimplemented(0x5C),
-    Opcode::Unimplemented(0x5D),
-    Opcode::Unimplemented(0x5E),
-    Opcode::Unimplemented(0x5F),
-    Opcode::Unimplemented(0x60),
-    Opcode::Unimplemented(0x61),
-    Opcode::Unimplemented(0x62),
-    Opcode::Unimplemented(0x63),
-    Opcode::Unimplemented(0x64),
-    Opcode::Unimplemented(0x65),
-    Opcode::Unimplemented(0x66),
-    Opcode::Unimplemented(0x67),
-    Opcode::Unimplemented(0x68),
-    Opcode::Unimplemented(0x69),
-    Opcode::Unimplemented(0x6A),
-    Opcode::Unimplemented(0x6B),
-    Opcode::Unimplemented(0x6C),
-    Opcode::Unimplemented(0x6D),
-    Opcode::Unimplemented(0x6E),
-    Opcode::Unimplemented(0x6F),
-    Opcode::Unimplemented(0x70),
-    Opcode::Unimplemented(0x71),
-    Opcode::Unimplemented(0x72),
-    Opcode::Unimplemented(0x73),
-    Opcode::Unimplemented(0x74),
-    Opcode::Unimplemented(0x75),
-    Opcode::Unimplemented(0x76),
-    Opcode::Unimplemented(0x77),
-    Opcode::Unimplemented(0x78),
-    Opcode::Unimplemented(0x79),
-    Opcode::Unimplemented(0x7A),
-    Opcode::Unimplemented(0x7B),
-    Opcode::Unimplemented(0x7C),
-    Opcode::Unimplemented(0x7D),
-    Opcode::Unimplemented(0x7E),
-    Opcode::Unimplemented(0x7F),
+    Opcode::Bit(0, Register8Bit::B),
+    Opcode::Bit(0, Register8Bit::C),
+    Opcode::Bit(0, Register8Bit::D),
+    Opcode::Bit(0, Register8Bit::E),
+    Opcode::Bit(0, Register8Bit::H),
+    Opcode::Bit(0, Register8Bit::L),
+    Opcode::BitHlAddr(0),
+    Opcode::Bit(0, Register8Bit::A),
+    Opcode::Bit(1, Register8Bit::B),
+    Opcode::Bit(1, Register8Bit::C),
+    Opcode::Bit(1, Register8Bit::D),
+    Opcode::Bit(1, Register8Bit::E),
+    Opcode::Bit(1, Register8Bit::H),
+    Opcode::Bit(1, Register8Bit::L),
+    Opcode::BitHlAddr(1),
+    Opcode::Bit(1, Register8Bit::A),
+    Opcode::Bit(2, Register8Bit::B),
+    Opcode::Bit(2, Register8Bit::C),
+    Opcode::Bit(2, Register8Bit::D),
+    Opcode::Bit(2, Register8Bit::E),
+    Opcode::Bit(2, Register8Bit::H),
+    Opcode::Bit(2, Register8Bit::L),
+    Opcode::BitHlAddr(2),
+    Opcode::Bit(2, Register8Bit::A),
+    Opcode::Bit(3, Register8Bit::B),
+    Opcode::Bit(3, Register8Bit::C),
+    Opcode::Bit(3, Register8Bit::D),
+    Opcode::Bit(3, Register8Bit::E),
+    Opcode::Bit(3, Register8Bit::H),
+    Opcode::Bit(3, Register8Bit::L),
+    Opcode::BitHlAddr(3),
+    Opcode::Bit(3, Register8Bit::A),
+    Opcode::Bit(4, Register8Bit::B),
+    Opcode::Bit(4, Register8Bit::C),
+    Opcode::Bit(4, Register8Bit::D),
+    Opcode::Bit(4, Register8Bit::E),
+    Opcode::Bit(4, Register8Bit::H),
+    Opcode::Bit(4, Register8Bit::L),
+    Opcode::BitHlAddr(4),
+    Opcode::Bit(4, Register8Bit::A),
+    Opcode::Bit(5, Register8Bit::B),
+    Opcode::Bit(5, Register8Bit::C),
+    Opcode::Bit(5, Register8Bit::D),
+    Opcode::Bit(5, Register8Bit::E),
+    Opcode::Bit(5, Register8Bit::H),
+    Opcode::Bit(5, Register8Bit::L),
+    Opcode::BitHlAddr(5),
+    Opcode::Bit(5, Register8Bit::A),
+    Opcode::Bit(6, Register8Bit::B),
+    Opcode::Bit(6, Register8Bit::C),
+    Opcode::Bit(6, Register8Bit::D),
+    Opcode::Bit(6, Register8Bit::E),
+    Opcode::Bit(6, Register8Bit::H),
+    Opcode::Bit(6, Register8Bit::L),
+    Opcode::BitHlAddr(6),
+    Opcode::Bit(6, Register8Bit::A),
+    Opcode::Bit(7, Register8Bit::B),
+    Opcode::Bit(7, Register8Bit::C),
+    Opcode::Bit(7, Register8Bit::D),
+    Opcode::Bit(7, Register8Bit::E),
+    Opcode::Bit(7, Register8Bit::H),
+    Opcode::Bit(7, Register8Bit::L),
+    Opcode::BitHlAddr(7),
+    Opcode::Bit(7, Register8Bit::A),
     Opcode::Unimplemented(0x80),
     Opcode::Unimplemented(0x81),
     Opcode::Unimplemented(0x82),
@@ -1182,6 +1184,70 @@ mod tests {
     #[case(0x3D, Opcode::Srl(Register8Bit::L))]
     #[case(0x3E, Opcode::SrlHlAddr)]
     #[case(0x3F, Opcode::Srl(Register8Bit::A))]
+    #[case(0x40, Opcode::Bit(0, Register8Bit::B))]
+    #[case(0x41, Opcode::Bit(0, Register8Bit::C))]
+    #[case(0x42, Opcode::Bit(0, Register8Bit::D))]
+    #[case(0x43, Opcode::Bit(0, Register8Bit::E))]
+    #[case(0x44, Opcode::Bit(0, Register8Bit::H))]
+    #[case(0x45, Opcode::Bit(0, Register8Bit::L))]
+    #[case(0x46, Opcode::BitHlAddr(0))]
+    #[case(0x47, Opcode::Bit(0, Register8Bit::A))]
+    #[case(0x48, Opcode::Bit(1, Register8Bit::B))]
+    #[case(0x49, Opcode::Bit(1, Register8Bit::C))]
+    #[case(0x4A, Opcode::Bit(1, Register8Bit::D))]
+    #[case(0x4B, Opcode::Bit(1, Register8Bit::E))]
+    #[case(0x4C, Opcode::Bit(1, Register8Bit::H))]
+    #[case(0x4D, Opcode::Bit(1, Register8Bit::L))]
+    #[case(0x4E, Opcode::BitHlAddr(1))]
+    #[case(0x4F, Opcode::Bit(1, Register8Bit::A))]
+    #[case(0x50, Opcode::Bit(2, Register8Bit::B))]
+    #[case(0x51, Opcode::Bit(2, Register8Bit::C))]
+    #[case(0x52, Opcode::Bit(2, Register8Bit::D))]
+    #[case(0x53, Opcode::Bit(2, Register8Bit::E))]
+    #[case(0x54, Opcode::Bit(2, Register8Bit::H))]
+    #[case(0x55, Opcode::Bit(2, Register8Bit::L))]
+    #[case(0x56, Opcode::BitHlAddr(2))]
+    #[case(0x57, Opcode::Bit(2, Register8Bit::A))]
+    #[case(0x58, Opcode::Bit(3, Register8Bit::B))]
+    #[case(0x59, Opcode::Bit(3, Register8Bit::C))]
+    #[case(0x5A, Opcode::Bit(3, Register8Bit::D))]
+    #[case(0x5B, Opcode::Bit(3, Register8Bit::E))]
+    #[case(0x5C, Opcode::Bit(3, Register8Bit::H))]
+    #[case(0x5D, Opcode::Bit(3, Register8Bit::L))]
+    #[case(0x5E, Opcode::BitHlAddr(3))]
+    #[case(0x5F, Opcode::Bit(3, Register8Bit::A))]
+    #[case(0x60, Opcode::Bit(4, Register8Bit::B))]
+    #[case(0x61, Opcode::Bit(4, Register8Bit::C))]
+    #[case(0x62, Opcode::Bit(4, Register8Bit::D))]
+    #[case(0x63, Opcode::Bit(4, Register8Bit::E))]
+    #[case(0x64, Opcode::Bit(4, Register8Bit::H))]
+    #[case(0x65, Opcode::Bit(4, Register8Bit::L))]
+    #[case(0x66, Opcode::BitHlAddr(4))]
+    #[case(0x67, Opcode::Bit(4, Register8Bit::A))]
+    #[case(0x68, Opcode::Bit(5, Register8Bit::B))]
+    #[case(0x69, Opcode::Bit(5, Register8Bit::C))]
+    #[case(0x6A, Opcode::Bit(5, Register8Bit::D))]
+    #[case(0x6B, Opcode::Bit(5, Register8Bit::E))]
+    #[case(0x6C, Opcode::Bit(5, Register8Bit::H))]
+    #[case(0x6D, Opcode::Bit(5, Register8Bit::L))]
+    #[case(0x6E, Opcode::BitHlAddr(5))]
+    #[case(0x6F, Opcode::Bit(5, Register8Bit::A))]
+    #[case(0x70, Opcode::Bit(6, Register8Bit::B))]
+    #[case(0x71, Opcode::Bit(6, Register8Bit::C))]
+    #[case(0x72, Opcode::Bit(6, Register8Bit::D))]
+    #[case(0x73, Opcode::Bit(6, Register8Bit::E))]
+    #[case(0x74, Opcode::Bit(6, Register8Bit::H))]
+    #[case(0x75, Opcode::Bit(6, Register8Bit::L))]
+    #[case(0x76, Opcode::BitHlAddr(6))]
+    #[case(0x77, Opcode::Bit(6, Register8Bit::A))]
+    #[case(0x78, Opcode::Bit(7, Register8Bit::B))]
+    #[case(0x79, Opcode::Bit(7, Register8Bit::C))]
+    #[case(0x7A, Opcode::Bit(7, Register8Bit::D))]
+    #[case(0x7B, Opcode::Bit(7, Register8Bit::E))]
+    #[case(0x7C, Opcode::Bit(7, Register8Bit::H))]
+    #[case(0x7D, Opcode::Bit(7, Register8Bit::L))]
+    #[case(0x7E, Opcode::BitHlAddr(7))]
+    #[case(0x7F, Opcode::Bit(7, Register8Bit::A))]
     fn should_return_expected_prefix_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
