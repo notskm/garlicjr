@@ -83,6 +83,7 @@ pub enum Opcode {
     CallCondImm16(Cond),
     CallImm16,
     Rst(RstTarget),
+    Prefix,
     Unimplemented(u8),
 }
 
@@ -437,7 +438,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::RetCond(Cond::Z),
     Opcode::Ret,
     Opcode::JpCondImm16(Cond::Z),
-    Opcode::Unimplemented(0xCB),
+    Opcode::Prefix,
     Opcode::CallCondImm16(Cond::Z),
     Opcode::CallImm16,
     Opcode::Unimplemented(0xCE),
@@ -789,6 +790,7 @@ mod tests {
     #[case(0xDF, Opcode::Rst(RstTarget::Addr18))]
     #[case(0xEF, Opcode::Rst(RstTarget::Addr28))]
     #[case(0xFF, Opcode::Rst(RstTarget::Addr38))]
+    #[case(0xCB, Opcode::Prefix)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
