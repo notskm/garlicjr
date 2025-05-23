@@ -82,6 +82,7 @@ pub enum Opcode {
     JpHlAddr,
     CallCondImm16(Cond),
     CallImm16,
+    Rst(RstTarget),
     Unimplemented(u8),
 }
 
@@ -432,7 +433,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Nz),
     Opcode::PushReg16Stack(Register16BitStack::BC),
     Opcode::Unimplemented(0xC6),
-    Opcode::Unimplemented(0xC7),
+    Opcode::Rst(RstTarget::Addr00),
     Opcode::RetCond(Cond::Z),
     Opcode::Ret,
     Opcode::JpCondImm16(Cond::Z),
@@ -440,7 +441,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Z),
     Opcode::CallImm16,
     Opcode::Unimplemented(0xCE),
-    Opcode::Unimplemented(0xCF),
+    Opcode::Rst(RstTarget::Addr08),
     Opcode::RetCond(Cond::Nc),
     Opcode::PopReg16Stack(Register16BitStack::DE),
     Opcode::JpCondImm16(Cond::Nc),
@@ -448,7 +449,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Nc),
     Opcode::PushReg16Stack(Register16BitStack::DE),
     Opcode::Unimplemented(0xD6),
-    Opcode::Unimplemented(0xD7),
+    Opcode::Rst(RstTarget::Addr10),
     Opcode::RetCond(Cond::C),
     Opcode::Reti,
     Opcode::JpCondImm16(Cond::C),
@@ -456,7 +457,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::C),
     Opcode::Unimplemented(0xDD),
     Opcode::Unimplemented(0xDE),
-    Opcode::Unimplemented(0xDF),
+    Opcode::Rst(RstTarget::Addr18),
     Opcode::Unimplemented(0xE0),
     Opcode::PopReg16Stack(Register16BitStack::HL),
     Opcode::Unimplemented(0xE2),
@@ -464,7 +465,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xE4),
     Opcode::PushReg16Stack(Register16BitStack::HL),
     Opcode::Unimplemented(0xE6),
-    Opcode::Unimplemented(0xE7),
+    Opcode::Rst(RstTarget::Addr20),
     Opcode::Unimplemented(0xE8),
     Opcode::JpHlAddr,
     Opcode::Unimplemented(0xEA),
@@ -472,7 +473,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xEC),
     Opcode::Unimplemented(0xED),
     Opcode::Unimplemented(0xEE),
-    Opcode::Unimplemented(0xEF),
+    Opcode::Rst(RstTarget::Addr28),
     Opcode::Unimplemented(0xF0),
     Opcode::PopReg16Stack(Register16BitStack::AF),
     Opcode::Unimplemented(0xF2),
@@ -480,7 +481,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xF4),
     Opcode::PushReg16Stack(Register16BitStack::AF),
     Opcode::Unimplemented(0xF6),
-    Opcode::Unimplemented(0xF7),
+    Opcode::Rst(RstTarget::Addr30),
     Opcode::Unimplemented(0xF8),
     Opcode::Unimplemented(0xF9),
     Opcode::Unimplemented(0xFA),
@@ -488,7 +489,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xFC),
     Opcode::Unimplemented(0xFD),
     Opcode::Unimplemented(0xFE),
-    Opcode::Unimplemented(0xFF),
+    Opcode::Rst(RstTarget::Addr38),
 ];
 
 impl Opcode {
@@ -533,6 +534,18 @@ pub enum Cond {
     C,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum RstTarget {
+    Addr00,
+    Addr10,
+    Addr20,
+    Addr30,
+    Addr08,
+    Addr18,
+    Addr28,
+    Addr38,
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::*;
@@ -553,7 +566,6 @@ mod tests {
     #[case(0xDB, Opcode::Unimplemented(0xDB))]
     #[case(0xDD, Opcode::Unimplemented(0xDD))]
     #[case(0xDE, Opcode::Unimplemented(0xDE))]
-    #[case(0xDF, Opcode::Unimplemented(0xDF))]
     #[case(0b00111110, Opcode::LdReg8Imm8(Register8Bit::A))]
     #[case(0b00000110, Opcode::LdReg8Imm8(Register8Bit::B))]
     #[case(0b00001110, Opcode::LdReg8Imm8(Register8Bit::C))]
@@ -768,6 +780,14 @@ mod tests {
     #[case(0xCC, Opcode::CallCondImm16(Cond::Z))]
     #[case(0xDC, Opcode::CallCondImm16(Cond::C))]
     #[case(0xCD, Opcode::CallImm16)]
+    #[case(0xC7, Opcode::Rst(RstTarget::Addr00))]
+    #[case(0xD7, Opcode::Rst(RstTarget::Addr10))]
+    #[case(0xE7, Opcode::Rst(RstTarget::Addr20))]
+    #[case(0xF7, Opcode::Rst(RstTarget::Addr30))]
+    #[case(0xCF, Opcode::Rst(RstTarget::Addr08))]
+    #[case(0xDF, Opcode::Rst(RstTarget::Addr18))]
+    #[case(0xEF, Opcode::Rst(RstTarget::Addr28))]
+    #[case(0xFF, Opcode::Rst(RstTarget::Addr38))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
