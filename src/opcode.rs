@@ -88,6 +88,10 @@ pub enum Opcode {
     SubImm8,
     AndImm8,
     OrImm8,
+    AdcAImm8,
+    SbcAImm8,
+    XorImm8,
+    CpImm8,
     Unimplemented(u8),
 }
 
@@ -445,7 +449,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Prefix,
     Opcode::CallCondImm16(Cond::Z),
     Opcode::CallImm16,
-    Opcode::Unimplemented(0xCE),
+    Opcode::AdcAImm8,
     Opcode::Rst(RstTarget::Addr08),
     Opcode::RetCond(Cond::Nc),
     Opcode::PopReg16Stack(Register16BitStack::DE),
@@ -461,7 +465,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xDB),
     Opcode::CallCondImm16(Cond::C),
     Opcode::Unimplemented(0xDD),
-    Opcode::Unimplemented(0xDE),
+    Opcode::SbcAImm8,
     Opcode::Rst(RstTarget::Addr18),
     Opcode::Unimplemented(0xE0),
     Opcode::PopReg16Stack(Register16BitStack::HL),
@@ -477,7 +481,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xEB),
     Opcode::Unimplemented(0xEC),
     Opcode::Unimplemented(0xED),
-    Opcode::Unimplemented(0xEE),
+    Opcode::XorImm8,
     Opcode::Rst(RstTarget::Addr28),
     Opcode::Unimplemented(0xF0),
     Opcode::PopReg16Stack(Register16BitStack::AF),
@@ -493,7 +497,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xFB),
     Opcode::Unimplemented(0xFC),
     Opcode::Unimplemented(0xFD),
-    Opcode::Unimplemented(0xFE),
+    Opcode::CpImm8,
     Opcode::Rst(RstTarget::Addr38),
 ];
 
@@ -799,6 +803,10 @@ mod tests {
     #[case(0xD6, Opcode::SubImm8)]
     #[case(0xE6, Opcode::AndImm8)]
     #[case(0xF6, Opcode::OrImm8)]
+    #[case(0xCE, Opcode::AdcAImm8)]
+    #[case(0xDE, Opcode::SbcAImm8)]
+    #[case(0xEE, Opcode::XorImm8)]
+    #[case(0xFE, Opcode::CpImm8)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
