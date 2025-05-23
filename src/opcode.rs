@@ -76,6 +76,7 @@ pub enum Opcode {
     Ret,
     Reti,
     PopReg16Stack(Register16BitStack),
+    PushReg16Stack(Register16BitStack),
     Unimplemented(u8),
 }
 
@@ -424,7 +425,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xC2),
     Opcode::Unimplemented(0xC3),
     Opcode::Unimplemented(0xC4),
-    Opcode::Unimplemented(0xC5),
+    Opcode::PushReg16Stack(Register16BitStack::BC),
     Opcode::Unimplemented(0xC6),
     Opcode::Unimplemented(0xC7),
     Opcode::RetCond(Cond::Z),
@@ -440,7 +441,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xD2),
     Opcode::Unimplemented(0xD3),
     Opcode::Unimplemented(0xD4),
-    Opcode::Unimplemented(0xD5),
+    Opcode::PushReg16Stack(Register16BitStack::DE),
     Opcode::Unimplemented(0xD6),
     Opcode::Unimplemented(0xD7),
     Opcode::RetCond(Cond::C),
@@ -456,7 +457,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xE2),
     Opcode::Unimplemented(0xE3),
     Opcode::Unimplemented(0xE4),
-    Opcode::Unimplemented(0xE5),
+    Opcode::PushReg16Stack(Register16BitStack::HL),
     Opcode::Unimplemented(0xE6),
     Opcode::Unimplemented(0xE7),
     Opcode::Unimplemented(0xE8),
@@ -472,7 +473,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xF2),
     Opcode::Unimplemented(0xF3),
     Opcode::Unimplemented(0xF4),
-    Opcode::Unimplemented(0xF5),
+    Opcode::PushReg16Stack(Register16BitStack::AF),
     Opcode::Unimplemented(0xF6),
     Opcode::Unimplemented(0xF7),
     Opcode::Unimplemented(0xF8),
@@ -747,6 +748,10 @@ mod tests {
     #[case(0xD1, Opcode::PopReg16Stack(Register16BitStack::DE))]
     #[case(0xE1, Opcode::PopReg16Stack(Register16BitStack::HL))]
     #[case(0xF1, Opcode::PopReg16Stack(Register16BitStack::AF))]
+    #[case(0xC5, Opcode::PushReg16Stack(Register16BitStack::BC))]
+    #[case(0xD5, Opcode::PushReg16Stack(Register16BitStack::DE))]
+    #[case(0xE5, Opcode::PushReg16Stack(Register16BitStack::HL))]
+    #[case(0xF5, Opcode::PushReg16Stack(Register16BitStack::AF))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
