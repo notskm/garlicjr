@@ -75,6 +75,7 @@ pub enum Opcode {
     RetCond(Cond),
     Ret,
     Reti,
+    PopReg16Stack(Register16BitStack),
     Unimplemented(u8),
 }
 
@@ -419,7 +420,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CpHlAddr,
     Opcode::CpReg8(Register8Bit::A),
     Opcode::RetCond(Cond::Nz),
-    Opcode::Unimplemented(0xC1),
+    Opcode::PopReg16Stack(Register16BitStack::BC),
     Opcode::Unimplemented(0xC2),
     Opcode::Unimplemented(0xC3),
     Opcode::Unimplemented(0xC4),
@@ -435,7 +436,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xCE),
     Opcode::Unimplemented(0xCF),
     Opcode::RetCond(Cond::Nc),
-    Opcode::Unimplemented(0xD1),
+    Opcode::PopReg16Stack(Register16BitStack::DE),
     Opcode::Unimplemented(0xD2),
     Opcode::Unimplemented(0xD3),
     Opcode::Unimplemented(0xD4),
@@ -451,7 +452,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xDE),
     Opcode::Unimplemented(0xDF),
     Opcode::Unimplemented(0xE0),
-    Opcode::Unimplemented(0xE1),
+    Opcode::PopReg16Stack(Register16BitStack::HL),
     Opcode::Unimplemented(0xE2),
     Opcode::Unimplemented(0xE3),
     Opcode::Unimplemented(0xE4),
@@ -467,7 +468,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xEE),
     Opcode::Unimplemented(0xEF),
     Opcode::Unimplemented(0xF0),
-    Opcode::Unimplemented(0xF1),
+    Opcode::PopReg16Stack(Register16BitStack::AF),
     Opcode::Unimplemented(0xF2),
     Opcode::Unimplemented(0xF3),
     Opcode::Unimplemented(0xF4),
@@ -508,6 +509,14 @@ pub enum Register16Bit {
     DE,
     HL,
     SP,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum Register16BitStack {
+    BC,
+    DE,
+    HL,
+    AF,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -734,6 +743,10 @@ mod tests {
     #[case(0xD8, Opcode::RetCond(Cond::C))]
     #[case(0xC9, Opcode::Ret)]
     #[case(0xD9, Opcode::Reti)]
+    #[case(0xC1, Opcode::PopReg16Stack(Register16BitStack::BC))]
+    #[case(0xD1, Opcode::PopReg16Stack(Register16BitStack::DE))]
+    #[case(0xE1, Opcode::PopReg16Stack(Register16BitStack::HL))]
+    #[case(0xF1, Opcode::PopReg16Stack(Register16BitStack::AF))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
