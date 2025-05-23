@@ -72,6 +72,7 @@ pub enum Opcode {
     OrHLAddr,
     CpReg8(Register8Bit),
     CpHlAddr,
+    RetCond(Cond),
     Unimplemented(u8),
 }
 
@@ -415,7 +416,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CpReg8(Register8Bit::L),
     Opcode::CpHlAddr,
     Opcode::CpReg8(Register8Bit::A),
-    Opcode::Unimplemented(0xC0),
+    Opcode::RetCond(Cond::Nz),
     Opcode::Unimplemented(0xC1),
     Opcode::Unimplemented(0xC2),
     Opcode::Unimplemented(0xC3),
@@ -423,7 +424,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xC5),
     Opcode::Unimplemented(0xC6),
     Opcode::Unimplemented(0xC7),
-    Opcode::Unimplemented(0xC8),
+    Opcode::RetCond(Cond::Z),
     Opcode::Unimplemented(0xC9),
     Opcode::Unimplemented(0xCA),
     Opcode::Unimplemented(0xCB),
@@ -431,7 +432,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xCD),
     Opcode::Unimplemented(0xCE),
     Opcode::Unimplemented(0xCF),
-    Opcode::Unimplemented(0xD0),
+    Opcode::RetCond(Cond::Nc),
     Opcode::Unimplemented(0xD1),
     Opcode::Unimplemented(0xD2),
     Opcode::Unimplemented(0xD3),
@@ -439,7 +440,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xD5),
     Opcode::Unimplemented(0xD6),
     Opcode::Unimplemented(0xD7),
-    Opcode::Unimplemented(0xD8),
+    Opcode::RetCond(Cond::C),
     Opcode::Unimplemented(0xD9),
     Opcode::Unimplemented(0xDA),
     Opcode::Unimplemented(0xDB),
@@ -725,6 +726,10 @@ mod tests {
     #[case(0xBD, Opcode::CpReg8(Register8Bit::L))]
     #[case(0xBE, Opcode::CpHlAddr)]
     #[case(0xBF, Opcode::CpReg8(Register8Bit::A))]
+    #[case(0xC0, Opcode::RetCond(Cond::Nz))]
+    #[case(0xC8, Opcode::RetCond(Cond::Z))]
+    #[case(0xD0, Opcode::RetCond(Cond::Nc))]
+    #[case(0xD8, Opcode::RetCond(Cond::C))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
