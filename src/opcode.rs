@@ -92,6 +92,12 @@ pub enum Opcode {
     SbcAImm8,
     XorImm8,
     CpImm8,
+    LdhImm8AddrA,
+    LdhAImm8Addr,
+    LdCAddrA,
+    LdACAddr,
+    LdImm16AddrA,
+    LdAImm16Addr,
     Unimplemented(u8),
 }
 
@@ -467,9 +473,9 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xDD),
     Opcode::SbcAImm8,
     Opcode::Rst(RstTarget::Addr18),
-    Opcode::Unimplemented(0xE0),
+    Opcode::LdhImm8AddrA,
     Opcode::PopReg16Stack(Register16BitStack::HL),
-    Opcode::Unimplemented(0xE2),
+    Opcode::LdCAddrA,
     Opcode::Unimplemented(0xE3),
     Opcode::Unimplemented(0xE4),
     Opcode::PushReg16Stack(Register16BitStack::HL),
@@ -477,15 +483,15 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Rst(RstTarget::Addr20),
     Opcode::Unimplemented(0xE8),
     Opcode::JpHlAddr,
-    Opcode::Unimplemented(0xEA),
+    Opcode::LdImm16AddrA,
     Opcode::Unimplemented(0xEB),
     Opcode::Unimplemented(0xEC),
     Opcode::Unimplemented(0xED),
     Opcode::XorImm8,
     Opcode::Rst(RstTarget::Addr28),
-    Opcode::Unimplemented(0xF0),
+    Opcode::LdhAImm8Addr,
     Opcode::PopReg16Stack(Register16BitStack::AF),
-    Opcode::Unimplemented(0xF2),
+    Opcode::LdACAddr,
     Opcode::Unimplemented(0xF3),
     Opcode::Unimplemented(0xF4),
     Opcode::PushReg16Stack(Register16BitStack::AF),
@@ -493,7 +499,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Rst(RstTarget::Addr30),
     Opcode::Unimplemented(0xF8),
     Opcode::Unimplemented(0xF9),
-    Opcode::Unimplemented(0xFA),
+    Opcode::LdAImm16Addr,
     Opcode::Unimplemented(0xFB),
     Opcode::Unimplemented(0xFC),
     Opcode::Unimplemented(0xFD),
@@ -807,6 +813,12 @@ mod tests {
     #[case(0xDE, Opcode::SbcAImm8)]
     #[case(0xEE, Opcode::XorImm8)]
     #[case(0xFE, Opcode::CpImm8)]
+    #[case(0xE0, Opcode::LdhImm8AddrA)]
+    #[case(0xF0, Opcode::LdhAImm8Addr)]
+    #[case(0xE2, Opcode::LdCAddrA)]
+    #[case(0xF2, Opcode::LdACAddr)]
+    #[case(0xEA, Opcode::LdImm16AddrA)]
+    #[case(0xFA, Opcode::LdAImm16Addr)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
