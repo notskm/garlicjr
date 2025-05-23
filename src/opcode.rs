@@ -101,6 +101,8 @@ pub enum Opcode {
     AddSpImm8,
     Di,
     Ei,
+    LdHlSpPlusImm8,
+    LdSpHl,
     Unimplemented(u8),
 }
 
@@ -500,8 +502,8 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::PushReg16Stack(Register16BitStack::AF),
     Opcode::OrImm8,
     Opcode::Rst(RstTarget::Addr30),
-    Opcode::Unimplemented(0xF8),
-    Opcode::Unimplemented(0xF9),
+    Opcode::LdHlSpPlusImm8,
+    Opcode::LdSpHl,
     Opcode::LdAImm16Addr,
     Opcode::Ei,
     Opcode::Unimplemented(0xFC),
@@ -825,6 +827,8 @@ mod tests {
     #[case(0xE8, Opcode::AddSpImm8)]
     #[case(0xF3, Opcode::Di)]
     #[case(0xFB, Opcode::Ei)]
+    #[case(0xF8, Opcode::LdHlSpPlusImm8)]
+    #[case(0xF9, Opcode::LdSpHl)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
