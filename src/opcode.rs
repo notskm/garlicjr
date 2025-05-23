@@ -77,6 +77,7 @@ pub enum Opcode {
     Reti,
     PopReg16Stack(Register16BitStack),
     PushReg16Stack(Register16BitStack),
+    JpCondImm16(Cond),
     Unimplemented(u8),
 }
 
@@ -422,7 +423,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CpReg8(Register8Bit::A),
     Opcode::RetCond(Cond::Nz),
     Opcode::PopReg16Stack(Register16BitStack::BC),
-    Opcode::Unimplemented(0xC2),
+    Opcode::JpCondImm16(Cond::Nz),
     Opcode::Unimplemented(0xC3),
     Opcode::Unimplemented(0xC4),
     Opcode::PushReg16Stack(Register16BitStack::BC),
@@ -430,7 +431,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xC7),
     Opcode::RetCond(Cond::Z),
     Opcode::Ret,
-    Opcode::Unimplemented(0xCA),
+    Opcode::JpCondImm16(Cond::Z),
     Opcode::Unimplemented(0xCB),
     Opcode::Unimplemented(0xCC),
     Opcode::Unimplemented(0xCD),
@@ -438,7 +439,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xCF),
     Opcode::RetCond(Cond::Nc),
     Opcode::PopReg16Stack(Register16BitStack::DE),
-    Opcode::Unimplemented(0xD2),
+    Opcode::JpCondImm16(Cond::Nc),
     Opcode::Unimplemented(0xD3),
     Opcode::Unimplemented(0xD4),
     Opcode::PushReg16Stack(Register16BitStack::DE),
@@ -446,7 +447,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xD7),
     Opcode::RetCond(Cond::C),
     Opcode::Reti,
-    Opcode::Unimplemented(0xDA),
+    Opcode::JpCondImm16(Cond::C),
     Opcode::Unimplemented(0xDB),
     Opcode::Unimplemented(0xDC),
     Opcode::Unimplemented(0xDD),
@@ -752,6 +753,10 @@ mod tests {
     #[case(0xD5, Opcode::PushReg16Stack(Register16BitStack::DE))]
     #[case(0xE5, Opcode::PushReg16Stack(Register16BitStack::HL))]
     #[case(0xF5, Opcode::PushReg16Stack(Register16BitStack::AF))]
+    #[case(0xC2, Opcode::JpCondImm16(Cond::Nz))]
+    #[case(0xD2, Opcode::JpCondImm16(Cond::Nc))]
+    #[case(0xCA, Opcode::JpCondImm16(Cond::Z))]
+    #[case(0xDA, Opcode::JpCondImm16(Cond::C))]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
