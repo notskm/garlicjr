@@ -98,6 +98,7 @@ pub enum Opcode {
     LdACAddr,
     LdImm16AddrA,
     LdAImm16Addr,
+    AddSpImm8,
     Unimplemented(u8),
 }
 
@@ -481,7 +482,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::PushReg16Stack(Register16BitStack::HL),
     Opcode::AndImm8,
     Opcode::Rst(RstTarget::Addr20),
-    Opcode::Unimplemented(0xE8),
+    Opcode::AddSpImm8,
     Opcode::JpHlAddr,
     Opcode::LdImm16AddrA,
     Opcode::Unimplemented(0xEB),
@@ -819,6 +820,7 @@ mod tests {
     #[case(0xF2, Opcode::LdACAddr)]
     #[case(0xEA, Opcode::LdImm16AddrA)]
     #[case(0xFA, Opcode::LdAImm16Addr)]
+    #[case(0xE8, Opcode::AddSpImm8)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
