@@ -108,6 +108,8 @@ pub enum Opcode {
     RlcHlAddr,
     RrcReg8(Register8Bit),
     RrcHlAddr,
+    Rl(Register8Bit),
+    RlHlAddr,
 }
 
 const OPTABLE: [Opcode; 256] = [
@@ -533,14 +535,14 @@ const PREFIX_OPTABLE: [Opcode; 256] = [
     Opcode::RrcReg8(Register8Bit::L),
     Opcode::RrcHlAddr,
     Opcode::RrcReg8(Register8Bit::A),
-    Opcode::Unimplemented(0x10),
-    Opcode::Unimplemented(0x11),
-    Opcode::Unimplemented(0x12),
-    Opcode::Unimplemented(0x13),
-    Opcode::Unimplemented(0x14),
-    Opcode::Unimplemented(0x15),
-    Opcode::Unimplemented(0x16),
-    Opcode::Unimplemented(0x17),
+    Opcode::Rl(Register8Bit::B),
+    Opcode::Rl(Register8Bit::C),
+    Opcode::Rl(Register8Bit::D),
+    Opcode::Rl(Register8Bit::E),
+    Opcode::Rl(Register8Bit::H),
+    Opcode::Rl(Register8Bit::L),
+    Opcode::RlHlAddr,
+    Opcode::Rl(Register8Bit::A),
     Opcode::Unimplemented(0x18),
     Opcode::Unimplemented(0x19),
     Opcode::Unimplemented(0x1A),
@@ -1122,6 +1124,14 @@ mod tests {
     #[case(0x0D, Opcode::RrcReg8(Register8Bit::L))]
     #[case(0x0E, Opcode::RrcHlAddr)]
     #[case(0x0F, Opcode::RrcReg8(Register8Bit::A))]
+    #[case(0x10, Opcode::Rl(Register8Bit::B))]
+    #[case(0x11, Opcode::Rl(Register8Bit::C))]
+    #[case(0x12, Opcode::Rl(Register8Bit::D))]
+    #[case(0x13, Opcode::Rl(Register8Bit::E))]
+    #[case(0x14, Opcode::Rl(Register8Bit::H))]
+    #[case(0x15, Opcode::Rl(Register8Bit::L))]
+    #[case(0x16, Opcode::RlHlAddr)]
+    #[case(0x17, Opcode::Rl(Register8Bit::A))]
     fn should_return_expected_prefix_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
