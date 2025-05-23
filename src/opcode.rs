@@ -78,6 +78,7 @@ pub enum Opcode {
     PopReg16Stack(Register16BitStack),
     PushReg16Stack(Register16BitStack),
     JpCondImm16(Cond),
+    JpImm16,
     Unimplemented(u8),
 }
 
@@ -424,7 +425,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::RetCond(Cond::Nz),
     Opcode::PopReg16Stack(Register16BitStack::BC),
     Opcode::JpCondImm16(Cond::Nz),
-    Opcode::Unimplemented(0xC3),
+    Opcode::JpImm16,
     Opcode::Unimplemented(0xC4),
     Opcode::PushReg16Stack(Register16BitStack::BC),
     Opcode::Unimplemented(0xC6),
@@ -757,6 +758,7 @@ mod tests {
     #[case(0xD2, Opcode::JpCondImm16(Cond::Nc))]
     #[case(0xCA, Opcode::JpCondImm16(Cond::Z))]
     #[case(0xDA, Opcode::JpCondImm16(Cond::C))]
+    #[case(0xC3, Opcode::JpImm16)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
