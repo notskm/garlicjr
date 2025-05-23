@@ -73,6 +73,8 @@ pub enum Opcode {
     CpReg8(Register8Bit),
     CpHlAddr,
     RetCond(Cond),
+    Ret,
+    Reti,
     Unimplemented(u8),
 }
 
@@ -425,7 +427,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xC6),
     Opcode::Unimplemented(0xC7),
     Opcode::RetCond(Cond::Z),
-    Opcode::Unimplemented(0xC9),
+    Opcode::Ret,
     Opcode::Unimplemented(0xCA),
     Opcode::Unimplemented(0xCB),
     Opcode::Unimplemented(0xCC),
@@ -441,7 +443,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xD6),
     Opcode::Unimplemented(0xD7),
     Opcode::RetCond(Cond::C),
-    Opcode::Unimplemented(0xD9),
+    Opcode::Reti,
     Opcode::Unimplemented(0xDA),
     Opcode::Unimplemented(0xDB),
     Opcode::Unimplemented(0xDC),
@@ -730,6 +732,8 @@ mod tests {
     #[case(0xC8, Opcode::RetCond(Cond::Z))]
     #[case(0xD0, Opcode::RetCond(Cond::Nc))]
     #[case(0xD8, Opcode::RetCond(Cond::C))]
+    #[case(0xC9, Opcode::Ret)]
+    #[case(0xD9, Opcode::Reti)]
     fn should_return_expected_instruction_given_an_opcode_byte(
         #[case] raw_opcode: u8,
         #[case] result: Opcode,
