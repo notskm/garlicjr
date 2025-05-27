@@ -116,6 +116,10 @@ impl SharpSM83 {
         match self.opcode {
             Opcode::Nop => self.no_op(),
             Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
+            Opcode::LdReg8Reg8 {
+                source,
+                destination,
+            } => self.ld_r8_r8(source, destination),
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -141,6 +145,26 @@ impl SharpSM83 {
                 self.phase = Phase::Fetch;
             }
             _ => (),
+        }
+    }
+
+    fn ld_r8_r8(&mut self, source: Register8Bit, destination: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(source);
+            self.write_to_register(destination, data);
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn read_from_register(&mut self, register: Register8Bit) -> u8 {
+        match register {
+            Register8Bit::A => self.registers.a,
+            Register8Bit::B => self.registers.b,
+            Register8Bit::C => self.registers.c,
+            Register8Bit::D => self.registers.d,
+            Register8Bit::E => self.registers.e,
+            Register8Bit::H => self.registers.h,
+            Register8Bit::L => self.registers.l,
         }
     }
 
@@ -248,6 +272,55 @@ mod tests {
     #[case("26.json")]
     #[case("2E.json")]
     #[case("3E.json")]
+    #[case("40.json")]
+    #[case("41.json")]
+    #[case("42.json")]
+    #[case("43.json")]
+    #[case("44.json")]
+    #[case("45.json")]
+    #[case("47.json")]
+    #[case("48.json")]
+    #[case("49.json")]
+    #[case("4A.json")]
+    #[case("4B.json")]
+    #[case("4C.json")]
+    #[case("4D.json")]
+    #[case("4F.json")]
+    #[case("50.json")]
+    #[case("51.json")]
+    #[case("52.json")]
+    #[case("53.json")]
+    #[case("54.json")]
+    #[case("55.json")]
+    #[case("57.json")]
+    #[case("58.json")]
+    #[case("59.json")]
+    #[case("5A.json")]
+    #[case("5B.json")]
+    #[case("5C.json")]
+    #[case("5D.json")]
+    #[case("5F.json")]
+    #[case("60.json")]
+    #[case("61.json")]
+    #[case("62.json")]
+    #[case("63.json")]
+    #[case("64.json")]
+    #[case("65.json")]
+    #[case("67.json")]
+    #[case("68.json")]
+    #[case("69.json")]
+    #[case("6A.json")]
+    #[case("6B.json")]
+    #[case("6C.json")]
+    #[case("6D.json")]
+    #[case("6F.json")]
+    #[case("78.json")]
+    #[case("79.json")]
+    #[case("7A.json")]
+    #[case("7B.json")]
+    #[case("7C.json")]
+    #[case("7D.json")]
+    #[case("7F.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
         let test_filepath = Path::new("test-data/json-tests/GameboyCPUTests/v2/").join(test_file);
 
