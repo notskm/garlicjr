@@ -17,9 +17,8 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-mod bus;
 mod cpu;
-mod opcode;
+mod ram;
 
-pub use bus::*;
 pub use cpu::*;
+pub use ram::*;

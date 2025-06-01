@@ -109,7 +109,7 @@ impl SharpSM83 {
     }
 
     fn increment_program_counter(&mut self) {
-        self.registers.program_counter += 1;
+        self.registers.program_counter = self.registers.program_counter.wrapping_add(1);
     }
 
     fn execute_opcode(&mut self, bus: &mut Bus) {
@@ -266,12 +266,12 @@ mod tests {
     #[rstest]
     #[case("00.json")]
     #[case("06.json")]
-    #[case("0E.json")]
+    #[case("0e.json")]
     #[case("16.json")]
-    #[case("1E.json")]
+    #[case("1e.json")]
     #[case("26.json")]
-    #[case("2E.json")]
-    #[case("3E.json")]
+    #[case("2e.json")]
+    #[case("3e.json")]
     #[case("40.json")]
     #[case("41.json")]
     #[case("42.json")]
@@ -281,11 +281,11 @@ mod tests {
     #[case("47.json")]
     #[case("48.json")]
     #[case("49.json")]
-    #[case("4A.json")]
-    #[case("4B.json")]
-    #[case("4C.json")]
-    #[case("4D.json")]
-    #[case("4F.json")]
+    #[case("4a.json")]
+    #[case("4b.json")]
+    #[case("4c.json")]
+    #[case("4d.json")]
+    #[case("4f.json")]
     #[case("50.json")]
     #[case("51.json")]
     #[case("52.json")]
@@ -295,11 +295,11 @@ mod tests {
     #[case("57.json")]
     #[case("58.json")]
     #[case("59.json")]
-    #[case("5A.json")]
-    #[case("5B.json")]
-    #[case("5C.json")]
-    #[case("5D.json")]
-    #[case("5F.json")]
+    #[case("5a.json")]
+    #[case("5b.json")]
+    #[case("5c.json")]
+    #[case("5d.json")]
+    #[case("5f.json")]
     #[case("60.json")]
     #[case("61.json")]
     #[case("62.json")]
@@ -309,20 +309,20 @@ mod tests {
     #[case("67.json")]
     #[case("68.json")]
     #[case("69.json")]
-    #[case("6A.json")]
-    #[case("6B.json")]
-    #[case("6C.json")]
-    #[case("6D.json")]
-    #[case("6F.json")]
+    #[case("6a.json")]
+    #[case("6b.json")]
+    #[case("6c.json")]
+    #[case("6d.json")]
+    #[case("6f.json")]
     #[case("78.json")]
     #[case("79.json")]
-    #[case("7A.json")]
-    #[case("7B.json")]
-    #[case("7C.json")]
-    #[case("7D.json")]
-    #[case("7F.json")]
+    #[case("7a.json")]
+    #[case("7b.json")]
+    #[case("7c.json")]
+    #[case("7d.json")]
+    #[case("7f.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
-        let test_filepath = Path::new("test-data/json-tests/GameboyCPUTests/v2/").join(test_file);
+        let test_filepath = Path::new("test-data/json-tests/GameBoyCPUTests/v2/").join(test_file);
 
         let file = File::open(test_filepath).unwrap();
         let reader = BufReader::new(file);

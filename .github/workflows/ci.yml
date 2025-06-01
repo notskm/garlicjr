@@ -1,24 +1,78 @@
-name: Cargo Build & Test
-
-on:
-  push:
-  pull_request:
-
-env:
-  CARGO_TERM_COLOR: always
+name: CI
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build_and_test:
+  check-formatting:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
-          # - beta
-          # - nightly
     steps:
       - uses: actions/checkout@v4
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo clippy -- -Dwarnings
-      - run: cargo build --verbose
-      - run: cargo test --verbose
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+  build:
+    runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 60
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            TARGET: x86_64-unknown-linux-gnu
+
+          - os: ubuntu-latest
+            TARGET: wasm32-unknown-unknown
+
+          - os: windows-latest
+            TARGET: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target=${{ matrix.TARGET }}
+
+      - name: Test
+        run: cargo test --release --target=${{ matrix.TARGET }}
+        if: ${{ !contains(matrix.TARGET, 'wasm32') }}
+
+      - name: Clippy
+        run: cargo clippy --release --target=${{ matrix.TARGET }} -- -D warnings
+
+      - name: Trunk
+        run: |
+          cd garlicjr_dbg
+          wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+          ./trunk build --release --public-url $public_url
+        env:
+          public_url: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        if: ${{ contains(matrix.TARGET, 'wasm32') }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./garlicjr_dbg/dist
+        if: ${{ contains(matrix.TARGET, 'wasm32') }}
+
+  deploy:
+    needs:
+      - check-formatting
+      - build
+    if: github.ref == 'refs/heads/main'
+
+    timeout-minutes: 15
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
