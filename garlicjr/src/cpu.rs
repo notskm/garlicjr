@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::opcode::{Opcode, Register8Bit};
+use crate::opcode::{Cond, Opcode, Register8Bit};
 use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
@@ -129,6 +129,7 @@ impl SharpSM83 {
             } => self.ld_r8_r8(source, destination),
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
+            Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -225,6 +226,32 @@ impl SharpSM83 {
         self.phase = Phase::Fetch;
     }
 
+    fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
+        let should_jump = match condition {
+            Cond::Z => self.registers.f & Flags::Z as u8 > 0,
+            Cond::Nz => self.registers.f & Flags::Z as u8 == 0,
+            Cond::C => self.registers.f & Flags::C as u8 > 0,
+            Cond::Nc => self.registers.f & Flags::C as u8 == 0,
+        };
+
+        match (self.current_tick, should_jump) {
+            (2, _) => {
+                bus.address = self.registers.program_counter;
+                self.increment_program_counter();
+            }
+            (4, true) => {
+                let new_pc = self
+                    .registers
+                    .program_counter
+                    .wrapping_add_signed(bus.data as i8 as i16);
+                self.registers.program_counter = new_pc;
+            }
+            (6, false) => self.phase = Phase::Fetch,
+            (10, true) => self.phase = Phase::Fetch,
+            (_, _) => (),
+        }
+    }
+
     fn set_flag(&mut self, flag: Flags, value: bool) {
         let mask = flag as u8;
         if value {
@@ -259,7 +286,7 @@ mod tests {
 
         #[serde(rename = "final")]
         pub final_state: JsonTestState,
-        pub cycles: Vec<JsonTestCycleEntry>,
+        pub cycles: Vec<Option<JsonTestCycleEntry>>,
     }
 
     #[derive(Deserialize)]
@@ -323,9 +350,13 @@ mod tests {
     #[case("0e.json")]
     #[case("16.json")]
     #[case("1e.json")]
+    #[case("20.json")]
     #[case("26.json")]
+    #[case("28.json")]
     #[case("2e.json")]
+    #[case("30.json")]
     #[case("3e.json")]
+    #[case("38.json")]
     #[case("40.json")]
     #[case("41.json")]
     #[case("42.json")]
@@ -450,28 +481,28 @@ mod tests {
                     ram[bus.address as usize] = bus.data;
                 }
 
-                let cycle = test.cycles[i].clone();
+                if let Some(cycle) = &test.cycles[i] {
+                    let read = cycle.flags.contains('r');
+                    let write = cycle.flags.contains('w');
 
-                let read = cycle.flags.contains('r');
-                let write = cycle.flags.contains('w');
+                    assert_eq!(bus.mode == ReadWriteMode::Read, read);
+                    assert_eq!(bus.mode == ReadWriteMode::Write, write);
 
-                assert_eq!(bus.mode == ReadWriteMode::Read, read);
-                assert_eq!(bus.mode == ReadWriteMode::Write, write);
+                    assert_eq!(
+                        bus.address, cycle.address,
+                        "Expected address {} on bus after M-cycle {}, got {}",
+                        cycle.address, i, bus.address
+                    );
 
-                assert_eq!(
-                    bus.address, cycle.address,
-                    "Expected address {} on bus after M-cycle {}, got {}",
-                    cycle.address, i, bus.address
-                );
-
-                assert_eq!(
-                    bus.data,
-                    cycle.data.unwrap(),
-                    "Expected data {} on bus after M-cycle {}, got {}",
-                    cycle.data.unwrap(),
-                    i,
-                    bus.data
-                );
+                    assert_eq!(
+                        bus.data,
+                        cycle.data.unwrap(),
+                        "Expected data {} on bus after M-cycle {}, got {}",
+                        cycle.data.unwrap(),
+                        i,
+                        bus.data
+                    );
+                }
             }
 
             let final_state = Registers {
