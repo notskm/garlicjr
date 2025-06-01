@@ -50,6 +50,13 @@ enum Phase {
     Fetch,
 }
 
+enum Flags {
+    Z = 0b10000000,
+    N = 0b01000000,
+    H = 0b00100000,
+    C = 0b00010000,
+}
+
 impl SharpSM83 {
     pub fn new() -> SharpSM83 {
         SharpSM83 {
@@ -120,6 +127,7 @@ impl SharpSM83 {
                 source,
                 destination,
             } => self.ld_r8_r8(source, destination),
+            Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -178,6 +186,34 @@ impl SharpSM83 {
             Register8Bit::H => self.registers.h = data,
             Register8Bit::L => self.registers.l = data,
         };
+    }
+
+    fn add_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+
+            let new_value = self.registers.a.wrapping_add(data);
+
+            let overflow_from_3 = new_value & 0b00001111 < self.registers.a & 0b00001111;
+            let overflow_from_7 = new_value < self.registers.a;
+
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, overflow_from_3);
+            self.set_flag(Flags::C, overflow_from_7);
+            self.registers.a = new_value;
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn set_flag(&mut self, flag: Flags, value: bool) {
+        let mask = flag as u8;
+        if value {
+            self.registers.f |= mask;
+        } else {
+            self.registers.f &= !mask;
+        }
     }
 }
 
@@ -321,6 +357,13 @@ mod tests {
     #[case("7c.json")]
     #[case("7d.json")]
     #[case("7f.json")]
+    #[case("80.json")]
+    #[case("81.json")]
+    #[case("82.json")]
+    #[case("83.json")]
+    #[case("84.json")]
+    #[case("85.json")]
+    #[case("87.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
         let test_filepath = Path::new("test-data/json-tests/GameBoyCPUTests/v2/").join(test_file);
 
