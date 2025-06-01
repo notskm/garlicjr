@@ -128,6 +128,7 @@ impl SharpSM83 {
                 destination,
             } => self.ld_r8_r8(source, destination),
             Opcode::AddAReg8(register) => self.add_a_r8(register),
+            Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -205,6 +206,23 @@ impl SharpSM83 {
 
             self.phase = Phase::Fetch;
         }
+    }
+
+    fn sub_a_r8(&mut self, register: Register8Bit) {
+        let data = self.read_from_register(register);
+
+        let new_value = self.registers.a.wrapping_sub(data);
+
+        let borrow_from_4 = new_value & 0b00001111 > self.registers.a & 0b00001111;
+        let borrow = new_value > self.registers.a;
+
+        self.set_flag(Flags::Z, new_value == 0);
+        self.set_flag(Flags::N, true);
+        self.set_flag(Flags::H, borrow_from_4);
+        self.set_flag(Flags::C, borrow);
+        self.registers.a = new_value;
+
+        self.phase = Phase::Fetch;
     }
 
     fn set_flag(&mut self, flag: Flags, value: bool) {
@@ -364,6 +382,13 @@ mod tests {
     #[case("84.json")]
     #[case("85.json")]
     #[case("87.json")]
+    #[case("90.json")]
+    #[case("91.json")]
+    #[case("92.json")]
+    #[case("93.json")]
+    #[case("94.json")]
+    #[case("95.json")]
+    #[case("97.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
         let test_filepath = Path::new("test-data/json-tests/GameBoyCPUTests/v2/").join(test_file);
 
