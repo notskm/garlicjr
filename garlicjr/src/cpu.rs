@@ -116,6 +116,7 @@ impl SharpSM83 {
 
     fn write_program_counter(&mut self, bus: &mut Bus) {
         bus.address = self.registers.program_counter;
+        bus.mode = ReadWriteMode::Read;
     }
 
     fn read_opcode(&mut self, bus: &mut Bus) {
@@ -135,6 +136,24 @@ impl SharpSM83 {
                 destination,
             } => self.ld_r8_r8(source, destination),
             Opcode::LdReg16Imm16(register) => self.ld_r16_imm16(register, bus),
+            Opcode::LdReg16AddrA(register) => {
+                self.ld_r16_r8(register, Register8Bit::A, IncrementMode::None, bus)
+            }
+            Opcode::LdHliAddrA => self.ld_r16_r8(
+                Register16Bit::HL,
+                Register8Bit::A,
+                IncrementMode::Increment,
+                bus,
+            ),
+            Opcode::LdHldAddrA => self.ld_r16_r8(
+                Register16Bit::HL,
+                Register8Bit::A,
+                IncrementMode::Decrement,
+                bus,
+            ),
+            Opcode::LdHlAddrReg8(register) => {
+                self.ld_r16_r8(Register16Bit::HL, register, IncrementMode::None, bus)
+            }
             Opcode::LdAReg16Addr(register) => {
                 self.ld_r8_r16addr(Register8Bit::A, register, bus, IncrementMode::None)
             }
@@ -211,6 +230,32 @@ impl SharpSM83 {
                 self.write_to_16_bit_register_high(register, high);
             }
             10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_r16_r8(
+        &mut self,
+        destination: Register16Bit,
+        source: Register8Bit,
+        mode: IncrementMode,
+        bus: &mut Bus,
+    ) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(destination);
+                bus.data = self.read_from_register(source);
+                bus.mode = ReadWriteMode::Write;
+
+                match mode {
+                    IncrementMode::Increment => self.add_to_16_bit_register(destination, 1),
+                    IncrementMode::Decrement => self.sub_from_16_bit_register(destination, 1),
+                    IncrementMode::None => (),
+                };
+            }
+            6 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -495,21 +540,25 @@ mod tests {
     #[rstest]
     #[case("00.json")]
     #[case("01.json")]
+    #[case("02.json")]
     #[case("06.json")]
     #[case("0e.json")]
     #[case("0a.json")]
     #[case("11.json")]
+    #[case("12.json")]
     #[case("16.json")]
     #[case("1a.json")]
     #[case("1e.json")]
     #[case("20.json")]
     #[case("21.json")]
+    #[case("22.json")]
     #[case("26.json")]
     #[case("28.json")]
     #[case("2a.json")]
     #[case("2e.json")]
     #[case("30.json")]
     #[case("31.json")]
+    #[case("32.json")]
     #[case("3a.json")]
     #[case("3e.json")]
     #[case("38.json")]
@@ -561,6 +610,13 @@ mod tests {
     #[case("6d.json")]
     #[case("6e.json")]
     #[case("6f.json")]
+    #[case("70.json")]
+    #[case("71.json")]
+    #[case("72.json")]
+    #[case("73.json")]
+    #[case("74.json")]
+    #[case("75.json")]
+    #[case("77.json")]
     #[case("78.json")]
     #[case("79.json")]
     #[case("7a.json")]
@@ -652,11 +708,21 @@ mod tests {
                 }
 
                 if let Some(cycle) = &test.cycles[i] {
-                    let read = cycle.flags.contains('r');
-                    let write = cycle.flags.contains('w');
+                    let read = cycle.flags.contains("read");
+                    let write = cycle.flags.contains("write");
 
-                    assert_eq!(bus.mode == ReadWriteMode::Read, read);
-                    assert_eq!(bus.mode == ReadWriteMode::Write, write);
+                    assert_eq!(
+                        bus.mode == ReadWriteMode::Read,
+                        read,
+                        "Expected bus in read mode on cycle {}",
+                        i
+                    );
+                    assert_eq!(
+                        bus.mode == ReadWriteMode::Write,
+                        write,
+                        "Expected bus in write mode on cycle {}",
+                        i
+                    );
 
                     assert_eq!(
                         bus.address, cycle.address,
