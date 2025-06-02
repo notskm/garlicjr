@@ -334,10 +334,8 @@ impl SharpSM83 {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
 
-            let new_value = self.registers.a.wrapping_add(data);
-
+            let (new_value, overflow_from_7) = self.registers.a.overflowing_add(data);
             let overflow_from_3 = new_value & 0b00001111 < self.registers.a & 0b00001111;
-            let overflow_from_7 = new_value < self.registers.a;
 
             self.set_flag(Flags::Z, new_value == 0);
             self.set_flag(Flags::N, false);
@@ -352,10 +350,8 @@ impl SharpSM83 {
     fn sub_a_r8(&mut self, register: Register8Bit) {
         let data = self.read_from_register(register);
 
-        let new_value = self.registers.a.wrapping_sub(data);
-
+        let (new_value, borrow) = self.registers.a.overflowing_sub(data);
         let borrow_from_4 = new_value & 0b00001111 > self.registers.a & 0b00001111;
-        let borrow = new_value > self.registers.a;
 
         self.set_flag(Flags::Z, new_value == 0);
         self.set_flag(Flags::N, true);
