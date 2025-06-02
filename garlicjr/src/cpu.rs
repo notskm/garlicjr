@@ -188,6 +188,7 @@ impl SharpSM83 {
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
             Opcode::Rl(register) => self.rl_r8(register),
+            Opcode::Bit(mask, register) => self.bit(mask, register),
 
             Opcode::Unimplemented(_) => {}
             _ => {}
@@ -499,6 +500,21 @@ impl SharpSM83 {
         }
     }
 
+    fn bit(&mut self, bit: u8, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+
+            let mask = 0b00000001 << bit;
+            let bit_is_0 = data & mask == 0;
+
+            self.set_flag(Flags::Z, bit_is_0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, true);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rlc_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -745,6 +761,62 @@ mod tests {
     #[case("cb.json", Some("cb 14"))]
     #[case("cb.json", Some("cb 15"))]
     #[case("cb.json", Some("cb 17"))]
+    #[case("cb.json", Some("cb 40"))]
+    #[case("cb.json", Some("cb 41"))]
+    #[case("cb.json", Some("cb 42"))]
+    #[case("cb.json", Some("cb 43"))]
+    #[case("cb.json", Some("cb 44"))]
+    #[case("cb.json", Some("cb 45"))]
+    #[case("cb.json", Some("cb 47"))]
+    #[case("cb.json", Some("cb 48"))]
+    #[case("cb.json", Some("cb 49"))]
+    #[case("cb.json", Some("cb 4a"))]
+    #[case("cb.json", Some("cb 4b"))]
+    #[case("cb.json", Some("cb 4c"))]
+    #[case("cb.json", Some("cb 4d"))]
+    #[case("cb.json", Some("cb 4f"))]
+    #[case("cb.json", Some("cb 50"))]
+    #[case("cb.json", Some("cb 51"))]
+    #[case("cb.json", Some("cb 52"))]
+    #[case("cb.json", Some("cb 53"))]
+    #[case("cb.json", Some("cb 54"))]
+    #[case("cb.json", Some("cb 55"))]
+    #[case("cb.json", Some("cb 57"))]
+    #[case("cb.json", Some("cb 58"))]
+    #[case("cb.json", Some("cb 59"))]
+    #[case("cb.json", Some("cb 5a"))]
+    #[case("cb.json", Some("cb 5b"))]
+    #[case("cb.json", Some("cb 5c"))]
+    #[case("cb.json", Some("cb 5d"))]
+    #[case("cb.json", Some("cb 5f"))]
+    #[case("cb.json", Some("cb 60"))]
+    #[case("cb.json", Some("cb 61"))]
+    #[case("cb.json", Some("cb 62"))]
+    #[case("cb.json", Some("cb 63"))]
+    #[case("cb.json", Some("cb 64"))]
+    #[case("cb.json", Some("cb 65"))]
+    #[case("cb.json", Some("cb 67"))]
+    #[case("cb.json", Some("cb 68"))]
+    #[case("cb.json", Some("cb 69"))]
+    #[case("cb.json", Some("cb 6a"))]
+    #[case("cb.json", Some("cb 6b"))]
+    #[case("cb.json", Some("cb 6c"))]
+    #[case("cb.json", Some("cb 6d"))]
+    #[case("cb.json", Some("cb 6f"))]
+    #[case("cb.json", Some("cb 70"))]
+    #[case("cb.json", Some("cb 71"))]
+    #[case("cb.json", Some("cb 72"))]
+    #[case("cb.json", Some("cb 73"))]
+    #[case("cb.json", Some("cb 74"))]
+    #[case("cb.json", Some("cb 75"))]
+    #[case("cb.json", Some("cb 77"))]
+    #[case("cb.json", Some("cb 78"))]
+    #[case("cb.json", Some("cb 79"))]
+    #[case("cb.json", Some("cb 7a"))]
+    #[case("cb.json", Some("cb 7b"))]
+    #[case("cb.json", Some("cb 7c"))]
+    #[case("cb.json", Some("cb 7d"))]
+    #[case("cb.json", Some("cb 7f"))]
     fn should_pass_gameboycputtests_json_tests(
         #[case] test_file: &str,
         #[case] filter: Option<&str>,
