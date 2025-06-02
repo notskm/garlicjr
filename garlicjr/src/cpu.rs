@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::opcode::{Cond, Opcode, Register8Bit};
+use crate::opcode::{Cond, Opcode, Register8Bit, Register16Bit};
 use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
@@ -127,6 +127,7 @@ impl SharpSM83 {
                 source,
                 destination,
             } => self.ld_r8_r8(source, destination),
+            Opcode::LdReg16Imm16(register) => self.ld_r16_imm16(register, bus),
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
@@ -166,6 +167,30 @@ impl SharpSM83 {
         }
     }
 
+    fn ld_r16_imm16(&mut self, register: Register16Bit, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                self.increment_program_counter();
+            }
+            4 => {
+                let low = bus.data;
+                self.write_to_16_bit_register(register, low, true);
+
+                bus.address = self.registers.program_counter;
+                self.increment_program_counter();
+            }
+            8 => {
+                let high = bus.data;
+                self.write_to_16_bit_register(register, high, false);
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn read_from_register(&mut self, register: Register8Bit) -> u8 {
         match register {
             Register8Bit::A => self.registers.a,
@@ -188,6 +213,56 @@ impl SharpSM83 {
             Register8Bit::H => self.registers.h = data,
             Register8Bit::L => self.registers.l = data,
         };
+    }
+
+    fn write_to_16_bit_register(&mut self, dest: Register16Bit, data: u8, low: bool) {
+        if dest == Register16Bit::SP {
+            if low {
+                Self::write_to_16_bit_low(&mut self.registers.stack_pointer, data);
+            } else {
+                Self::write_to_16_bit_high(&mut self.registers.stack_pointer, data);
+            }
+            return;
+        }
+
+        let register = match dest {
+            Register16Bit::BC => {
+                if low {
+                    &mut self.registers.c
+                } else {
+                    &mut self.registers.b
+                }
+            }
+            Register16Bit::DE => {
+                if low {
+                    &mut self.registers.e
+                } else {
+                    &mut self.registers.d
+                }
+            }
+            Register16Bit::HL => {
+                if low {
+                    &mut self.registers.l
+                } else {
+                    &mut self.registers.h
+                }
+            }
+            _ => panic!(""),
+        };
+
+        *register = data;
+    }
+
+    fn write_to_16_bit_low(destination: &mut u16, data: u8) {
+        *destination &= 0b1111111100000000;
+        *destination |= data as u16;
+    }
+
+    fn write_to_16_bit_high(destination: &mut u16, data: u8) {
+        let data_16_bit = (data as u16) << 8;
+
+        *destination &= 0b0000000011111111;
+        *destination |= data_16_bit;
     }
 
     fn add_a_r8(&mut self, register: Register8Bit) {
@@ -346,15 +421,19 @@ mod tests {
 
     #[rstest]
     #[case("00.json")]
+    #[case("01.json")]
     #[case("06.json")]
     #[case("0e.json")]
+    #[case("11.json")]
     #[case("16.json")]
     #[case("1e.json")]
     #[case("20.json")]
+    #[case("21.json")]
     #[case("26.json")]
     #[case("28.json")]
     #[case("2e.json")]
     #[case("30.json")]
+    #[case("31.json")]
     #[case("3e.json")]
     #[case("38.json")]
     #[case("40.json")]
