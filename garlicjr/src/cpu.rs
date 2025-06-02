@@ -155,6 +155,7 @@ impl SharpSM83 {
             }
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
+            Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
             Opcode::Unimplemented(_) => {}
             _ => {}
@@ -360,6 +361,17 @@ impl SharpSM83 {
         self.registers.a = new_value;
 
         self.phase = Phase::Fetch;
+    }
+
+    fn xor_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            self.registers.a ^= self.read_from_register(register);
+            self.set_flag(Flags::Z, self.registers.a == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, false);
+            self.phase = Phase::Fetch;
+        }
     }
 
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
@@ -571,6 +583,13 @@ mod tests {
     #[case("94.json")]
     #[case("95.json")]
     #[case("97.json")]
+    #[case("a8.json")]
+    #[case("a9.json")]
+    #[case("aa.json")]
+    #[case("ab.json")]
+    #[case("ac.json")]
+    #[case("ad.json")]
+    #[case("af.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
         let test_filepath = Path::new("test-data/json-tests/GameBoyCPUTests/v2/").join(test_file);
 
