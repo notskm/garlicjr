@@ -187,6 +187,7 @@ impl SharpSM83 {
 
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
+            Opcode::Rl(register) => self.rl_r8(register),
 
             Opcode::Unimplemented(_) => {}
             _ => {}
@@ -480,6 +481,24 @@ impl SharpSM83 {
         }
     }
 
+    fn rl_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+            let overflow = data & 0b10000000 > 0;
+            let data = data << 1;
+            let data = data | self.get_flag(Flags::C) as u8;
+
+            self.write_to_register(register, data);
+
+            self.set_flag(Flags::Z, data == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, overflow);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rlc_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -503,6 +522,11 @@ impl SharpSM83 {
             }
             _ => (),
         }
+    }
+
+    fn get_flag(&mut self, flag: Flags) -> bool {
+        let mask = flag as u8;
+        self.registers.f & mask > 0
     }
 
     fn set_flag(&mut self, flag: Flags, value: bool) {
@@ -714,6 +738,13 @@ mod tests {
     #[case("cb.json", Some("cb 05"))]
     #[case("cb.json", Some("cb 06"))]
     #[case("cb.json", Some("cb 07"))]
+    #[case("cb.json", Some("cb 10"))]
+    #[case("cb.json", Some("cb 11"))]
+    #[case("cb.json", Some("cb 12"))]
+    #[case("cb.json", Some("cb 13"))]
+    #[case("cb.json", Some("cb 14"))]
+    #[case("cb.json", Some("cb 15"))]
+    #[case("cb.json", Some("cb 17"))]
     fn should_pass_gameboycputtests_json_tests(
         #[case] test_file: &str,
         #[case] filter: Option<&str>,
@@ -726,7 +757,7 @@ mod tests {
         let test_data: Vec<&JsonTest> = if let Some(filter) = filter {
             test_data
                 .iter()
-                .filter(|test| test.name.contains(filter))
+                .filter(|test| test.name.starts_with(filter))
                 .collect()
         } else {
             test_data.iter().collect()
