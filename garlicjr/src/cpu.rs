@@ -57,6 +57,13 @@ enum Flags {
     C = 0b00010000,
 }
 
+#[derive(PartialEq)]
+enum IncrementMode {
+    Increment,
+    Decrement,
+    None,
+}
+
 impl SharpSM83 {
     pub fn new() -> SharpSM83 {
         SharpSM83 {
@@ -128,6 +135,24 @@ impl SharpSM83 {
                 destination,
             } => self.ld_r8_r8(source, destination),
             Opcode::LdReg16Imm16(register) => self.ld_r16_imm16(register, bus),
+            Opcode::LdAReg16Addr(register) => {
+                self.ld_r8_r16addr(Register8Bit::A, register, bus, IncrementMode::None)
+            }
+            Opcode::LdAHliAddr => self.ld_r8_r16addr(
+                Register8Bit::A,
+                Register16Bit::HL,
+                bus,
+                IncrementMode::Increment,
+            ),
+            Opcode::LdAHldAddr => self.ld_r8_r16addr(
+                Register8Bit::A,
+                Register16Bit::HL,
+                bus,
+                IncrementMode::Decrement,
+            ),
+            Opcode::LdReg8HlAddr(register) => {
+                self.ld_r8_r16addr(register, Register16Bit::HL, bus, IncrementMode::None);
+            }
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
@@ -175,16 +200,47 @@ impl SharpSM83 {
             }
             4 => {
                 let low = bus.data;
-                self.write_to_16_bit_register(register, low, true);
+                self.write_to_16_bit_register_low(register, low);
 
                 bus.address = self.registers.program_counter;
                 self.increment_program_counter();
             }
             8 => {
                 let high = bus.data;
-                self.write_to_16_bit_register(register, high, false);
+                self.write_to_16_bit_register_high(register, high);
             }
             10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_r8_r16addr(
+        &mut self,
+        destination: Register8Bit,
+        source: Register16Bit,
+        bus: &mut Bus,
+        mode: IncrementMode,
+    ) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(source);
+            }
+            4 => {
+                self.write_to_register(destination, bus.data);
+
+                match mode {
+                    IncrementMode::Increment => {
+                        self.add_to_16_bit_register(source, 1);
+                    }
+                    IncrementMode::Decrement => {
+                        self.sub_from_16_bit_register(source, 1);
+                    }
+                    _ => (),
+                }
+            }
+            6 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -215,42 +271,51 @@ impl SharpSM83 {
         };
     }
 
-    fn write_to_16_bit_register(&mut self, dest: Register16Bit, data: u8, low: bool) {
-        if dest == Register16Bit::SP {
-            if low {
-                Self::write_to_16_bit_low(&mut self.registers.stack_pointer, data);
-            } else {
-                Self::write_to_16_bit_high(&mut self.registers.stack_pointer, data);
-            }
-            return;
+    fn read_from_16_bit_register(&mut self, register: Register16Bit) -> u16 {
+        match register {
+            Register16Bit::BC => u16::from_be_bytes([self.registers.b, self.registers.c]),
+            Register16Bit::DE => u16::from_be_bytes([self.registers.d, self.registers.e]),
+            Register16Bit::HL => u16::from_be_bytes([self.registers.h, self.registers.l]),
+            Register16Bit::SP => self.registers.stack_pointer,
         }
+    }
 
-        let register = match dest {
-            Register16Bit::BC => {
-                if low {
-                    &mut self.registers.c
-                } else {
-                    &mut self.registers.b
-                }
-            }
-            Register16Bit::DE => {
-                if low {
-                    &mut self.registers.e
-                } else {
-                    &mut self.registers.d
-                }
-            }
-            Register16Bit::HL => {
-                if low {
-                    &mut self.registers.l
-                } else {
-                    &mut self.registers.h
-                }
-            }
-            _ => panic!(""),
-        };
+    fn write_to_16_bit_register(&mut self, register: Register16Bit, value: u16) {
+        let [high, low] = value.to_be_bytes();
+        self.write_to_16_bit_register_high(register, high);
+        self.write_to_16_bit_register_low(register, low);
+    }
 
-        *register = data;
+    fn write_to_16_bit_register_low(&mut self, dest: Register16Bit, data: u8) {
+        match dest {
+            Register16Bit::BC => self.write_to_register(Register8Bit::C, data),
+            Register16Bit::DE => self.write_to_register(Register8Bit::E, data),
+            Register16Bit::HL => self.write_to_register(Register8Bit::L, data),
+            Register16Bit::SP => Self::write_to_16_bit_low(&mut self.registers.stack_pointer, data),
+        }
+    }
+
+    fn write_to_16_bit_register_high(&mut self, dest: Register16Bit, data: u8) {
+        match dest {
+            Register16Bit::BC => self.write_to_register(Register8Bit::B, data),
+            Register16Bit::DE => self.write_to_register(Register8Bit::D, data),
+            Register16Bit::HL => self.write_to_register(Register8Bit::H, data),
+            Register16Bit::SP => {
+                Self::write_to_16_bit_high(&mut self.registers.stack_pointer, data)
+            }
+        }
+    }
+
+    fn add_to_16_bit_register(&mut self, register: Register16Bit, value: u16) {
+        let data = self.read_from_16_bit_register(register);
+        let result = data.wrapping_add(value);
+        self.write_to_16_bit_register(register, result);
+    }
+
+    fn sub_from_16_bit_register(&mut self, register: Register16Bit, value: u16) {
+        let data = self.read_from_16_bit_register(register);
+        let result = data.wrapping_sub(value);
+        self.write_to_16_bit_register(register, result);
     }
 
     fn write_to_16_bit_low(destination: &mut u16, data: u8) {
@@ -424,16 +489,20 @@ mod tests {
     #[case("01.json")]
     #[case("06.json")]
     #[case("0e.json")]
+    #[case("0a.json")]
     #[case("11.json")]
     #[case("16.json")]
+    #[case("1a.json")]
     #[case("1e.json")]
     #[case("20.json")]
     #[case("21.json")]
     #[case("26.json")]
     #[case("28.json")]
+    #[case("2a.json")]
     #[case("2e.json")]
     #[case("30.json")]
     #[case("31.json")]
+    #[case("3a.json")]
     #[case("3e.json")]
     #[case("38.json")]
     #[case("40.json")]
@@ -442,6 +511,7 @@ mod tests {
     #[case("43.json")]
     #[case("44.json")]
     #[case("45.json")]
+    #[case("46.json")]
     #[case("47.json")]
     #[case("48.json")]
     #[case("49.json")]
@@ -449,6 +519,7 @@ mod tests {
     #[case("4b.json")]
     #[case("4c.json")]
     #[case("4d.json")]
+    #[case("4e.json")]
     #[case("4f.json")]
     #[case("50.json")]
     #[case("51.json")]
@@ -456,6 +527,7 @@ mod tests {
     #[case("53.json")]
     #[case("54.json")]
     #[case("55.json")]
+    #[case("56.json")]
     #[case("57.json")]
     #[case("58.json")]
     #[case("59.json")]
@@ -463,6 +535,7 @@ mod tests {
     #[case("5b.json")]
     #[case("5c.json")]
     #[case("5d.json")]
+    #[case("5e.json")]
     #[case("5f.json")]
     #[case("60.json")]
     #[case("61.json")]
@@ -470,6 +543,7 @@ mod tests {
     #[case("63.json")]
     #[case("64.json")]
     #[case("65.json")]
+    #[case("66.json")]
     #[case("67.json")]
     #[case("68.json")]
     #[case("69.json")]
@@ -477,6 +551,7 @@ mod tests {
     #[case("6b.json")]
     #[case("6c.json")]
     #[case("6d.json")]
+    #[case("6e.json")]
     #[case("6f.json")]
     #[case("78.json")]
     #[case("79.json")]
@@ -484,6 +559,7 @@ mod tests {
     #[case("7b.json")]
     #[case("7c.json")]
     #[case("7d.json")]
+    #[case("7e.json")]
     #[case("7f.json")]
     #[case("80.json")]
     #[case("81.json")]
