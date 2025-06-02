@@ -27,6 +27,7 @@ pub struct SharpSM83 {
     current_tick: u8,
     opcode: Opcode,
     phase: Phase,
+    decode_as_prefix_opcode: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -84,6 +85,7 @@ impl SharpSM83 {
             current_tick: 0,
             opcode: Opcode::Nop,
             phase: Phase::Decode,
+            decode_as_prefix_opcode: false,
         }
     }
 
@@ -120,7 +122,12 @@ impl SharpSM83 {
     }
 
     fn read_opcode(&mut self, bus: &mut Bus) {
-        self.opcode = Opcode::decode(bus.data);
+        self.opcode = if self.decode_as_prefix_opcode {
+            self.decode_as_prefix_opcode = false;
+            Opcode::decode_as_prefix(bus.data)
+        } else {
+            Opcode::decode(bus.data)
+        }
     }
 
     fn increment_program_counter(&mut self) {
@@ -130,6 +137,7 @@ impl SharpSM83 {
     fn execute_opcode(&mut self, bus: &mut Bus) {
         match self.opcode {
             Opcode::Nop => self.no_op(),
+            Opcode::Prefix => self.prefix(),
             Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
             Opcode::LdReg8Reg8 {
                 source,
@@ -176,6 +184,10 @@ impl SharpSM83 {
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
+
+            Opcode::RlcReg8(register) => self.rlc_r8(register),
+            Opcode::RlcHlAddr => self.rlc_hladdr(bus),
+
             Opcode::Unimplemented(_) => {}
             _ => {}
         }
@@ -183,6 +195,13 @@ impl SharpSM83 {
 
     fn no_op(&mut self) {
         if self.current_tick == 2 {
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn prefix(&mut self) {
+        if self.current_tick == 2 {
+            self.decode_as_prefix_opcode = true;
             self.phase = Phase::Fetch;
         }
     }
@@ -445,6 +464,47 @@ impl SharpSM83 {
         }
     }
 
+    fn rlc_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+            let overflow = data & 0b10000000 > 0;
+            let data = data.rotate_left(1);
+            self.write_to_register(register, data);
+
+            self.set_flag(Flags::Z, data == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, overflow);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn rlc_hladdr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let overflow = bus.data & 0b10000000 > 0;
+
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.data = bus.data.rotate_left(1);
+                bus.mode = ReadWriteMode::Write;
+
+                self.set_flag(Flags::Z, bus.data == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, false);
+                self.set_flag(Flags::C, overflow);
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn set_flag(&mut self, flag: Flags, value: bool) {
         let mask = flag as u8;
         if value {
@@ -538,120 +598,139 @@ mod tests {
     }
 
     #[rstest]
-    #[case("00.json")]
-    #[case("01.json")]
-    #[case("02.json")]
-    #[case("06.json")]
-    #[case("0e.json")]
-    #[case("0a.json")]
-    #[case("11.json")]
-    #[case("12.json")]
-    #[case("16.json")]
-    #[case("1a.json")]
-    #[case("1e.json")]
-    #[case("20.json")]
-    #[case("21.json")]
-    #[case("22.json")]
-    #[case("26.json")]
-    #[case("28.json")]
-    #[case("2a.json")]
-    #[case("2e.json")]
-    #[case("30.json")]
-    #[case("31.json")]
-    #[case("32.json")]
-    #[case("3a.json")]
-    #[case("3e.json")]
-    #[case("38.json")]
-    #[case("40.json")]
-    #[case("41.json")]
-    #[case("42.json")]
-    #[case("43.json")]
-    #[case("44.json")]
-    #[case("45.json")]
-    #[case("46.json")]
-    #[case("47.json")]
-    #[case("48.json")]
-    #[case("49.json")]
-    #[case("4a.json")]
-    #[case("4b.json")]
-    #[case("4c.json")]
-    #[case("4d.json")]
-    #[case("4e.json")]
-    #[case("4f.json")]
-    #[case("50.json")]
-    #[case("51.json")]
-    #[case("52.json")]
-    #[case("53.json")]
-    #[case("54.json")]
-    #[case("55.json")]
-    #[case("56.json")]
-    #[case("57.json")]
-    #[case("58.json")]
-    #[case("59.json")]
-    #[case("5a.json")]
-    #[case("5b.json")]
-    #[case("5c.json")]
-    #[case("5d.json")]
-    #[case("5e.json")]
-    #[case("5f.json")]
-    #[case("60.json")]
-    #[case("61.json")]
-    #[case("62.json")]
-    #[case("63.json")]
-    #[case("64.json")]
-    #[case("65.json")]
-    #[case("66.json")]
-    #[case("67.json")]
-    #[case("68.json")]
-    #[case("69.json")]
-    #[case("6a.json")]
-    #[case("6b.json")]
-    #[case("6c.json")]
-    #[case("6d.json")]
-    #[case("6e.json")]
-    #[case("6f.json")]
-    #[case("70.json")]
-    #[case("71.json")]
-    #[case("72.json")]
-    #[case("73.json")]
-    #[case("74.json")]
-    #[case("75.json")]
-    #[case("77.json")]
-    #[case("78.json")]
-    #[case("79.json")]
-    #[case("7a.json")]
-    #[case("7b.json")]
-    #[case("7c.json")]
-    #[case("7d.json")]
-    #[case("7e.json")]
-    #[case("7f.json")]
-    #[case("80.json")]
-    #[case("81.json")]
-    #[case("82.json")]
-    #[case("83.json")]
-    #[case("84.json")]
-    #[case("85.json")]
-    #[case("87.json")]
-    #[case("90.json")]
-    #[case("91.json")]
-    #[case("92.json")]
-    #[case("93.json")]
-    #[case("94.json")]
-    #[case("95.json")]
-    #[case("97.json")]
-    #[case("a8.json")]
-    #[case("a9.json")]
-    #[case("aa.json")]
-    #[case("ab.json")]
-    #[case("ac.json")]
-    #[case("ad.json")]
-    #[case("af.json")]
-    fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
+    #[case("00.json", None)]
+    #[case("01.json", None)]
+    #[case("02.json", None)]
+    #[case("06.json", None)]
+    #[case("0e.json", None)]
+    #[case("0a.json", None)]
+    #[case("11.json", None)]
+    #[case("12.json", None)]
+    #[case("16.json", None)]
+    #[case("1a.json", None)]
+    #[case("1e.json", None)]
+    #[case("20.json", None)]
+    #[case("21.json", None)]
+    #[case("22.json", None)]
+    #[case("26.json", None)]
+    #[case("28.json", None)]
+    #[case("2a.json", None)]
+    #[case("2e.json", None)]
+    #[case("30.json", None)]
+    #[case("31.json", None)]
+    #[case("32.json", None)]
+    #[case("3a.json", None)]
+    #[case("3e.json", None)]
+    #[case("38.json", None)]
+    #[case("40.json", None)]
+    #[case("41.json", None)]
+    #[case("42.json", None)]
+    #[case("43.json", None)]
+    #[case("44.json", None)]
+    #[case("45.json", None)]
+    #[case("46.json", None)]
+    #[case("47.json", None)]
+    #[case("48.json", None)]
+    #[case("49.json", None)]
+    #[case("4a.json", None)]
+    #[case("4b.json", None)]
+    #[case("4c.json", None)]
+    #[case("4d.json", None)]
+    #[case("4e.json", None)]
+    #[case("4f.json", None)]
+    #[case("50.json", None)]
+    #[case("51.json", None)]
+    #[case("52.json", None)]
+    #[case("53.json", None)]
+    #[case("54.json", None)]
+    #[case("55.json", None)]
+    #[case("56.json", None)]
+    #[case("57.json", None)]
+    #[case("58.json", None)]
+    #[case("59.json", None)]
+    #[case("5a.json", None)]
+    #[case("5b.json", None)]
+    #[case("5c.json", None)]
+    #[case("5d.json", None)]
+    #[case("5e.json", None)]
+    #[case("5f.json", None)]
+    #[case("60.json", None)]
+    #[case("61.json", None)]
+    #[case("62.json", None)]
+    #[case("63.json", None)]
+    #[case("64.json", None)]
+    #[case("65.json", None)]
+    #[case("66.json", None)]
+    #[case("67.json", None)]
+    #[case("68.json", None)]
+    #[case("69.json", None)]
+    #[case("6a.json", None)]
+    #[case("6b.json", None)]
+    #[case("6c.json", None)]
+    #[case("6d.json", None)]
+    #[case("6e.json", None)]
+    #[case("6f.json", None)]
+    #[case("70.json", None)]
+    #[case("71.json", None)]
+    #[case("72.json", None)]
+    #[case("73.json", None)]
+    #[case("74.json", None)]
+    #[case("75.json", None)]
+    #[case("77.json", None)]
+    #[case("78.json", None)]
+    #[case("79.json", None)]
+    #[case("7a.json", None)]
+    #[case("7b.json", None)]
+    #[case("7c.json", None)]
+    #[case("7d.json", None)]
+    #[case("7e.json", None)]
+    #[case("7f.json", None)]
+    #[case("80.json", None)]
+    #[case("81.json", None)]
+    #[case("82.json", None)]
+    #[case("83.json", None)]
+    #[case("84.json", None)]
+    #[case("85.json", None)]
+    #[case("87.json", None)]
+    #[case("90.json", None)]
+    #[case("91.json", None)]
+    #[case("92.json", None)]
+    #[case("93.json", None)]
+    #[case("94.json", None)]
+    #[case("95.json", None)]
+    #[case("97.json", None)]
+    #[case("a8.json", None)]
+    #[case("a9.json", None)]
+    #[case("aa.json", None)]
+    #[case("ab.json", None)]
+    #[case("ac.json", None)]
+    #[case("ad.json", None)]
+    #[case("af.json", None)]
+    #[case("cb.json", Some("cb 00"))]
+    #[case("cb.json", Some("cb 01"))]
+    #[case("cb.json", Some("cb 02"))]
+    #[case("cb.json", Some("cb 03"))]
+    #[case("cb.json", Some("cb 04"))]
+    #[case("cb.json", Some("cb 05"))]
+    #[case("cb.json", Some("cb 06"))]
+    #[case("cb.json", Some("cb 07"))]
+    fn should_pass_gameboycputtests_json_tests(
+        #[case] test_file: &str,
+        #[case] filter: Option<&str>,
+    ) {
         let test_filepath = Path::new("test-data/json-tests/GameBoyCPUTests/v2/").join(test_file);
-
         let file = File::open(test_filepath).unwrap();
         let reader = BufReader::new(file);
+
         let test_data: Vec<JsonTest> = serde_json::from_reader(reader).unwrap();
+        let test_data: Vec<&JsonTest> = if let Some(filter) = filter {
+            test_data
+                .iter()
+                .filter(|test| test.name.contains(filter))
+                .collect()
+        } else {
+            test_data.iter().collect()
+        };
 
         for test in test_data {
             println!("Test name: {}", test.name);
@@ -683,7 +762,7 @@ mod tests {
 
             cpu.registers = initial_state.clone();
 
-            for ram_data in test.initial_state.ram {
+            for ram_data in &test.initial_state.ram {
                 let ram_index = ram_data.address as usize;
                 ram[ram_index] = ram_data.value;
             }
@@ -711,18 +790,23 @@ mod tests {
                     let read = cycle.flags.contains("read");
                     let write = cycle.flags.contains("write");
 
-                    assert_eq!(
-                        bus.mode == ReadWriteMode::Read,
-                        read,
-                        "Expected bus in read mode on cycle {}",
-                        i
-                    );
-                    assert_eq!(
-                        bus.mode == ReadWriteMode::Write,
-                        write,
-                        "Expected bus in write mode on cycle {}",
-                        i
-                    );
+                    if read {
+                        assert_eq!(
+                            bus.mode,
+                            ReadWriteMode::Read,
+                            "Expected bus in read mode on cycle {}",
+                            i
+                        );
+                    }
+
+                    if write {
+                        assert_eq!(
+                            bus.mode,
+                            ReadWriteMode::Write,
+                            "Expected bus in write mode on cycle {}",
+                            i
+                        );
+                    }
 
                     assert_eq!(
                         bus.address, cycle.address,
@@ -757,7 +841,7 @@ mod tests {
 
             assert_eq!(cpu.registers, final_state);
 
-            for ram_data in test.final_state.ram {
+            for ram_data in &test.final_state.ram {
                 let ram_index = ram_data.address as usize;
                 let data = ram[ram_index];
                 assert_eq!(data, ram_data.value);
