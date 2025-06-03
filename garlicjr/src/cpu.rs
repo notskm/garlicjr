@@ -187,7 +187,8 @@ impl SharpSM83 {
             Opcode::LdACAddr => self.ld_a_caddr(bus),
             Opcode::LdImm16AddrA => self.ld_imm16addr_a(bus),
             Opcode::LdAImm16Addr => self.ld_a_imm16addr(bus),
-            Opcode::LdhImm8AddrA => self.ld_imm8addr_a(bus),
+            Opcode::LdhImm8AddrA => self.ldh_imm8addr_a(bus),
+            Opcode::LdhAImm8Addr => self.ldh_a_imm8addr(bus),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
@@ -415,7 +416,7 @@ impl SharpSM83 {
         }
     }
 
-    fn ld_imm8addr_a(&mut self, bus: &mut Bus) {
+    fn ldh_imm8addr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
                 bus.address = self.registers.program_counter;
@@ -426,6 +427,27 @@ impl SharpSM83 {
                 bus.address = 0xFF00 + bus.data as u16;
                 bus.data = self.registers.a;
                 bus.mode = ReadWriteMode::Write;
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ldh_a_imm8addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            4 => {
+                bus.address = 0xFF00 + bus.data as u16;
+                bus.mode = ReadWriteMode::Read;
+            }
+            8 => {
+                self.registers.a = bus.data;
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -981,6 +1003,7 @@ mod tests {
     #[case("e0.json", "")]
     #[case("e2.json", "")]
     #[case("ea.json", "")]
+    #[case("f0.json", "")]
     #[case("f2.json", "")]
     #[case("fa.json", "")]
     #[case("cb.json", "cb 00")]
