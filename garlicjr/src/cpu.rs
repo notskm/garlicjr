@@ -186,6 +186,7 @@ impl SharpSM83 {
             Opcode::LdCAddrA => self.ld_caddr_a(bus),
             Opcode::LdACAddr => self.ld_a_caddr(bus),
             Opcode::LdImm16AddrA => self.ld_imm16addr_a(bus),
+            Opcode::LdAImm16Addr => self.ld_a_imm16addr(bus),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
@@ -375,6 +376,36 @@ impl SharpSM83 {
                 bus.address = self.temp_16_bit;
                 bus.data = self.registers.a;
                 bus.mode = ReadWriteMode::Write;
+            }
+            14 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_a_imm16addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            4 => {
+                self.temp_16_bit = bus.data as u16;
+
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            8 => {
+                self.temp_16_bit |= (bus.data as u16) << 8;
+
+                bus.address = self.temp_16_bit;
+                bus.mode = ReadWriteMode::Read;
+            }
+            12 => {
+                self.registers.a = bus.data;
             }
             14 => {
                 self.phase = Phase::Fetch;
@@ -930,6 +961,7 @@ mod tests {
     #[case("e2.json", "")]
     #[case("ea.json", "")]
     #[case("f2.json", "")]
+    #[case("fa.json", "")]
     #[case("cb.json", "cb 00")]
     #[case("cb.json", "cb 01")]
     #[case("cb.json", "cb 02")]
