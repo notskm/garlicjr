@@ -195,6 +195,8 @@ impl SharpSM83 {
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
+            Opcode::Rla => self.rla(),
+
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
 
             Opcode::CallImm16 => self.call_imm16(bus),
@@ -642,6 +644,11 @@ impl SharpSM83 {
         }
     }
 
+    fn rla(&mut self) {
+        self.rl_r8(Register8Bit::A);
+        self.set_flag(Flags::Z, false);
+    }
+
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
         let should_jump = match condition {
             Cond::Z => self.registers.f & Flags::Z as u8 > 0,
@@ -982,6 +989,7 @@ mod tests {
     #[case("14.json", "")]
     #[case("15.json", "")]
     #[case("16.json", "")]
+    #[case("17.json", "")]
     #[case("1a.json", "")]
     #[case("1c.json", "")]
     #[case("1d.json", "")]
