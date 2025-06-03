@@ -192,6 +192,7 @@ impl SharpSM83 {
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
+            Opcode::AddAHlAddr => self.add_a_hladdr(bus),
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
@@ -601,6 +602,29 @@ impl SharpSM83 {
         self.registers.a = new_value;
 
         self.phase = Phase::Fetch;
+    }
+
+    fn add_a_hladdr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let (new_value, overflow_from_7) = self.registers.a.overflowing_add(bus.data);
+                let overflow_from_3 = new_value & 0b00001111 < self.registers.a & 0b00001111;
+
+                self.set_flag(Flags::Z, new_value == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, overflow_from_3);
+                self.set_flag(Flags::C, overflow_from_7);
+                self.registers.a = new_value;
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
     }
 
     fn inc_r8(&mut self, register: Register8Bit) {
@@ -1082,6 +1106,7 @@ mod tests {
     #[case("83.json", "")]
     #[case("84.json", "")]
     #[case("85.json", "")]
+    #[case("86.json", "")]
     #[case("87.json", "")]
     #[case("90.json", "")]
     #[case("91.json", "")]
