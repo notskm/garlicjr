@@ -203,6 +203,8 @@ impl SharpSM83 {
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::Rla => self.rla(),
 
+            Opcode::CpImm8 => self.cp_a_imm8(bus),
+
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
 
             Opcode::CallImm16 => self.call_imm16(bus),
@@ -725,6 +727,27 @@ impl SharpSM83 {
         self.set_flag(Flags::Z, false);
     }
 
+    fn cp_a_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                let (result, overflow) = self.registers.a.overflowing_sub(bus.data);
+                let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+                self.set_flag(Flags::Z, result == 0);
+                self.set_flag(Flags::N, true);
+                self.set_flag(Flags::H, borrow_from_4);
+                self.set_flag(Flags::C, overflow);
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
         let should_jump = match condition {
             Cond::Z => self.registers.f & Flags::Z as u8 > 0,
@@ -1199,6 +1222,7 @@ mod tests {
     #[case("f2.json", "")]
     #[case("f5.json", "")]
     #[case("fa.json", "")]
+    #[case("fe.json", "")]
     #[case("cb.json", "cb 00")]
     #[case("cb.json", "cb 01")]
     #[case("cb.json", "cb 02")]
