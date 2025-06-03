@@ -204,6 +204,7 @@ impl SharpSM83 {
             Opcode::Rla => self.rla(),
 
             Opcode::CpImm8 => self.cp_a_imm8(bus),
+            Opcode::CpHlAddr => self.cp_a_hladdr(bus),
 
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
 
@@ -748,6 +749,27 @@ impl SharpSM83 {
         }
     }
 
+    fn cp_a_hladdr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let (result, overflow) = self.registers.a.overflowing_sub(bus.data);
+                let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+                self.set_flag(Flags::Z, result == 0);
+                self.set_flag(Flags::N, true);
+                self.set_flag(Flags::H, borrow_from_4);
+                self.set_flag(Flags::C, overflow);
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
         let should_jump = match condition {
             Cond::Z => self.registers.f & Flags::Z as u8 > 0,
@@ -1206,6 +1228,7 @@ mod tests {
     #[case("ac.json", "")]
     #[case("ad.json", "")]
     #[case("af.json", "")]
+    #[case("be.json", "")]
     #[case("c1.json", "")]
     #[case("c5.json", "")]
     #[case("c9.json", "")]
