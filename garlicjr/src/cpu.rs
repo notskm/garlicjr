@@ -17,7 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::opcode::{Cond, Opcode, Register8Bit, Register16Bit};
+use crate::opcode::{Cond, Opcode, Register8Bit, Register16Bit, Register16BitStack};
 use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
@@ -196,8 +196,10 @@ impl SharpSM83 {
             Opcode::DecReg8(register) => self.dec_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
+
             Opcode::CallImm16 => self.call_imm16(bus),
             Opcode::Ret => self.ret(bus),
+            Opcode::PushReg16Stack(register) => self.push_r16_stack(register, bus),
 
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
@@ -489,6 +491,15 @@ impl SharpSM83 {
         }
     }
 
+    fn read_from_16_bit_stack_register(&mut self, register: Register16BitStack) -> u16 {
+        match register {
+            Register16BitStack::BC => u16::from_be_bytes([self.registers.b, self.registers.c]),
+            Register16BitStack::DE => u16::from_be_bytes([self.registers.d, self.registers.e]),
+            Register16BitStack::HL => u16::from_be_bytes([self.registers.h, self.registers.l]),
+            Register16BitStack::AF => u16::from_be_bytes([self.registers.a, self.registers.f]),
+        }
+    }
+
     fn write_to_16_bit_register(&mut self, register: Register16Bit, value: u16) {
         let [high, low] = value.to_be_bytes();
         self.write_to_16_bit_register_high(register, high);
@@ -698,6 +709,37 @@ impl SharpSM83 {
                 self.registers.program_counter |= (bus.data as u16) << 8;
             }
             12 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn push_r16_stack(&mut self, register: Register16BitStack, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_stack_register(register);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let address = self.read_from_16_bit_stack_register(register);
+                let address_high = ((address & 0xFF00u16) >> 8) as u8;
+
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+                bus.address = self.registers.stack_pointer;
+                bus.data = address_high;
+                bus.mode = ReadWriteMode::Write;
+            }
+            8 => {
+                let address = self.read_from_16_bit_stack_register(register);
+                let address_low = (address & 0x00FFu16) as u8;
+
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+                bus.address = self.registers.stack_pointer;
+                bus.data = address_low;
+                bus.mode = ReadWriteMode::Write;
+            }
+            14 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -998,13 +1040,17 @@ mod tests {
     #[case("ac.json", "")]
     #[case("ad.json", "")]
     #[case("af.json", "")]
+    #[case("c5.json", "")]
     #[case("c9.json", "")]
     #[case("cd.json", "")]
+    #[case("d5.json", "")]
     #[case("e0.json", "")]
     #[case("e2.json", "")]
+    #[case("e5.json", "")]
     #[case("ea.json", "")]
     #[case("f0.json", "")]
     #[case("f2.json", "")]
+    #[case("f5.json", "")]
     #[case("fa.json", "")]
     #[case("cb.json", "cb 00")]
     #[case("cb.json", "cb 01")]
