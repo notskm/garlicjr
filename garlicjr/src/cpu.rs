@@ -140,6 +140,7 @@ impl SharpSM83 {
         match self.opcode {
             Opcode::Nop => self.no_op(),
             Opcode::Prefix => self.prefix(),
+
             Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
             Opcode::LdReg8Reg8 {
                 source,
@@ -184,6 +185,8 @@ impl SharpSM83 {
             }
             Opcode::LdCAddrA => self.ld_caddr_a(bus),
             Opcode::LdACAddr => self.ld_a_caddr(bus),
+            Opcode::LdImm16AddrA => self.ld_imm16addr_a(bus),
+
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::IncReg8(register) => self.inc_r8(register),
@@ -346,6 +349,34 @@ impl SharpSM83 {
                 self.registers.a = bus.data;
             }
             6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_imm16addr_a(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            4 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+
+                self.temp_16_bit = bus.data as u16;
+            }
+            8 => {
+                self.temp_16_bit |= (bus.data as u16) << 8;
+
+                bus.address = self.temp_16_bit;
+                bus.data = self.registers.a;
+                bus.mode = ReadWriteMode::Write;
+            }
+            14 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -897,6 +928,7 @@ mod tests {
     #[case("c9.json", "")]
     #[case("cd.json", "")]
     #[case("e2.json", "")]
+    #[case("ea.json", "")]
     #[case("f2.json", "")]
     #[case("cb.json", "cb 00")]
     #[case("cb.json", "cb 01")]
