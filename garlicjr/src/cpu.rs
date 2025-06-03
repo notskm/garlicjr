@@ -28,6 +28,7 @@ pub struct SharpSM83 {
     opcode: Opcode,
     phase: Phase,
     decode_as_prefix_opcode: bool,
+    temp_16_bit: u16,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -86,6 +87,7 @@ impl SharpSM83 {
             opcode: Opcode::Nop,
             phase: Phase::Decode,
             decode_as_prefix_opcode: false,
+            temp_16_bit: 0,
         }
     }
 
@@ -187,6 +189,7 @@ impl SharpSM83 {
             Opcode::DecReg8(register) => self.dec_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
+            Opcode::CallImm16 => self.call_imm16(bus),
 
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
@@ -513,6 +516,46 @@ impl SharpSM83 {
         }
     }
 
+    fn call_imm16(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            4 => {
+                self.temp_16_bit &= 0b1111111100000000;
+                self.temp_16_bit |= bus.data as u16;
+
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            8 => {
+                self.temp_16_bit &= 0b0000000011111111;
+                self.temp_16_bit |= (bus.data as u16) << 8u16;
+            }
+            12 => {
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+                bus.address = self.registers.stack_pointer;
+                bus.data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
+                bus.mode = ReadWriteMode::Write;
+            }
+            16 => {
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+                bus.address = self.registers.stack_pointer;
+                bus.data = (self.registers.program_counter & 0x00FFu16) as u8;
+                bus.mode = ReadWriteMode::Write;
+
+                self.registers.program_counter = self.temp_16_bit;
+            }
+            22 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn rlc_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
@@ -807,6 +850,7 @@ mod tests {
     #[case("ac.json", "")]
     #[case("ad.json", "")]
     #[case("af.json", "")]
+    #[case("cd.json", "")]
     #[case("e2.json", "")]
     #[case("cb.json", "cb 00")]
     #[case("cb.json", "cb 01")]
