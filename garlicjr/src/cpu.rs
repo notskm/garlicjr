@@ -183,6 +183,7 @@ impl SharpSM83 {
             Opcode::LdCAddrA => self.ld_caddr_a(bus),
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
+            Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
 
@@ -444,6 +445,21 @@ impl SharpSM83 {
         self.phase = Phase::Fetch;
     }
 
+    fn inc_r8(&mut self, register: Register8Bit) {
+        let data = self.read_from_register(register);
+
+        let new_value = data.wrapping_add(1);
+        let overflow_from_3 = new_value & 0b00001111 < data & 0b00001111;
+
+        self.write_to_register(register, new_value);
+
+        self.set_flag(Flags::Z, new_value == 0);
+        self.set_flag(Flags::N, false);
+        self.set_flag(Flags::H, overflow_from_3);
+
+        self.phase = Phase::Fetch;
+    }
+
     fn xor_a_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             self.registers.a ^= self.read_from_register(register);
@@ -656,25 +672,32 @@ mod tests {
     #[case("00.json", "")]
     #[case("01.json", "")]
     #[case("02.json", "")]
+    #[case("04.json", "")]
     #[case("06.json", "")]
     #[case("0e.json", "")]
     #[case("0a.json", "")]
+    #[case("0c.json", "")]
     #[case("11.json", "")]
     #[case("12.json", "")]
+    #[case("14.json", "")]
     #[case("16.json", "")]
     #[case("1a.json", "")]
+    #[case("1c.json", "")]
     #[case("1e.json", "")]
     #[case("20.json", "")]
     #[case("21.json", "")]
     #[case("22.json", "")]
+    #[case("24.json", "")]
     #[case("26.json", "")]
     #[case("28.json", "")]
     #[case("2a.json", "")]
+    #[case("2c.json", "")]
     #[case("2e.json", "")]
     #[case("30.json", "")]
     #[case("31.json", "")]
     #[case("32.json", "")]
     #[case("3a.json", "")]
+    #[case("3c.json", "")]
     #[case("3e.json", "")]
     #[case("38.json", "")]
     #[case("40.json", "")]
