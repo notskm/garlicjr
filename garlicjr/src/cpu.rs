@@ -107,7 +107,7 @@ impl SharpSM83 {
             }
             Phase::Execute => {
                 self.execute_opcode(bus);
-                self.current_tick += 1;
+                self.current_tick = self.current_tick.saturating_add(1);
             }
             Phase::Fetch => {
                 self.write_program_counter(bus);
@@ -855,7 +855,7 @@ impl SharpSM83 {
                 self.registers.program_counter &= 0x00FF;
                 self.registers.program_counter |= (bus.data as u16) << 8;
             }
-            12 => {
+            14 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
