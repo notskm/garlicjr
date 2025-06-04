@@ -207,6 +207,7 @@ impl SharpSM83 {
             Opcode::CpHlAddr => self.cp_a_hladdr(bus),
 
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
+            Opcode::JrImm8 => self.jr_imm8(bus),
 
             Opcode::CallImm16 => self.call_imm16(bus),
             Opcode::Ret => self.ret(bus),
@@ -796,6 +797,24 @@ impl SharpSM83 {
         }
     }
 
+    fn jr_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                self.increment_program_counter();
+            }
+            4 => {
+                let new_pc = self
+                    .registers
+                    .program_counter
+                    .wrapping_add_signed(bus.data as i8 as i16);
+                self.registers.program_counter = new_pc;
+            }
+            10 => self.phase = Phase::Fetch,
+            _ => (),
+        }
+    }
+
     fn call_imm16(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -1114,6 +1133,7 @@ mod tests {
     #[case("15.json", "")]
     #[case("16.json", "")]
     #[case("17.json", "")]
+    #[case("18.json", "")]
     #[case("1a.json", "")]
     #[case("1b.json", "")]
     #[case("1c.json", "")]
