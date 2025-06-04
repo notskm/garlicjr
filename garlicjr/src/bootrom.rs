@@ -6,7 +6,7 @@ pub struct DmgBootrom {
 }
 
 impl DmgBootrom {
-    pub fn from_reader(readable: &mut impl Read) -> std::io::Result<Self> {
+    pub fn from_reader(mut readable: impl Read) -> std::io::Result<Self> {
         let mut data = [0; 256];
         readable.read_exact(&mut data)?;
         Ok(Self { data })
@@ -55,8 +55,8 @@ mod tests {
     #[case([0u8;256])]
     #[case([255u8;256])]
     fn should_return_bootrom_if_given_256_bytes(#[case] raw_data: [u8; 256]) {
-        let mut file = BootromFile::new(&raw_data);
-        let bootrom = DmgBootrom::from_reader(&mut file);
+        let file = BootromFile::new(&raw_data);
+        let bootrom = DmgBootrom::from_reader(file);
         assert_eq!(*bootrom.unwrap().data(), raw_data);
     }
 
@@ -64,8 +64,8 @@ mod tests {
     #[case(&[0u8;255])]
     #[case(&[0u8;0])]
     fn should_return_error_when_given_less_than_256_bytes(#[case] raw_data: &'static [u8]) {
-        let mut file = BootromFile::new(raw_data);
-        let error = DmgBootrom::from_reader(&mut file).unwrap_err();
+        let file = BootromFile::new(raw_data);
+        let error = DmgBootrom::from_reader(file).unwrap_err();
         let expected_kind = std::io::ErrorKind::UnexpectedEof;
         assert_eq!(error.kind(), expected_kind);
     }
