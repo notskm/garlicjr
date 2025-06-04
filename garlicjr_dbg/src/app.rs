@@ -17,9 +17,12 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
+use std::sync::mpsc::{Receiver, Sender, channel};
+
 use crate::ui::*;
 use egui::TextureHandle;
 use garlicjr::*;
+use rfd::AsyncFileDialog;
 
 const REPO_URL: Option<&str> = option_env!("GARLICJR_REPO_URL");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -27,6 +30,9 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct GarlicJrApp {
+    #[serde(skip)]
+    bootrom_channel: (Sender<DmgBootrom>, Receiver<DmgBootrom>),
+
     license_window_open: bool,
     about_window_open: bool,
 
@@ -69,6 +75,7 @@ impl Default for GarlicJrApp {
         ram[8] = 0x00;
 
         Self {
+            bootrom_channel: channel(),
             license_window_open: false,
             about_window_open: false,
             disclaimer_window_open: true,
@@ -92,6 +99,13 @@ impl GarlicJrApp {
             None => Self::default(),
         }
     }
+
+    fn change_bootrom_and_reset(&mut self, bootrom: DmgBootrom) {
+        let data = bootrom.data();
+        self.ram.fill(0);
+        self.ram.splice(0..bootrom.data().len(), *data);
+        self.cpu = SharpSM83::new();
+    }
 }
 
 impl eframe::App for GarlicJrApp {
@@ -100,6 +114,10 @@ impl eframe::App for GarlicJrApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        if let Ok(bootrom) = self.bootrom_channel.1.try_recv() {
+            self.change_bootrom_and_reset(bootrom);
+        }
+
         if self.running {
             let cycles = (1_000_000f32 * frame.info().cpu_usage.unwrap_or(0f32)) as u64;
             for _ in 0..cycles {
@@ -109,15 +127,35 @@ impl eframe::App for GarlicJrApp {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                }
+                ui.menu_button("File", |ui| {
+                    if ui.button("Load bootrom...").clicked() {
+                        let task = AsyncFileDialog::new().pick_file();
+
+                        let ctx = ui.ctx().clone();
+                        let sender = self.bootrom_channel.0.clone();
+
+                        execute(async move {
+                            let file = task.await;
+
+                            if let Some(file) = file {
+                                let contents = file.read().await;
+                                let bootrom = DmgBootrom::from_reader(contents.as_slice());
+
+                                if let Ok(bootrom) = bootrom {
+                                    let _ = sender.send(bootrom);
+                                }
+
+                                ctx.request_repaint();
+                            }
+                        });
+                    }
+
+                    // NOTE: no File->Quit on web pages!
+                    let is_web = cfg!(target_arch = "wasm32");
+                    if is_web && ui.button("Quit").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
                 ui.menu_button("Help", |ui| {
                     if ui.button("View License").clicked() {
                         self.license_window_open = true;
@@ -171,10 +209,10 @@ impl eframe::App for GarlicJrApp {
                 ui.label(format!("UI version: {}", VERSION));
             });
 
-        egui::Window::new("Disclaimer")
+        egui::Window::new("Features")
             .open(&mut self.disclaimer_window_open)
             .show(ctx, |ui| {
-                let disclaimer = "There is currently no way to load ROM files into this emulator, nor is there a way to program it yourself. The screen is a static image and there is no sound emulation. Those features will come later. For now, enjoy running whatever program I've loaded by default!";
+                let disclaimer = "- Load boot ROM: ✔\n- Load ROMs: ❌\n- Display: ❌\n- Audio: ❌";
                 ui.label(disclaimer);
             });
 
@@ -235,4 +273,14 @@ fn run_gameboy_cycle(cpu: &mut SharpSM83, ram: &mut [u8], bus: &mut Bus) {
         ReadWriteMode::Write => ram[bus.address as usize] = bus.data,
         ReadWriteMode::Read => bus.data = ram[bus.address as usize],
     }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn execute<F: Future<Output = ()> + Send + 'static>(f: F) {
+    futures::executor::block_on(f);
+}
+
+#[cfg(target_arch = "wasm32")]
+fn execute<F: Future<Output = ()> + 'static>(f: F) {
+    wasm_bindgen_futures::spawn_local(f);
 }
