@@ -17,10 +17,12 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
+mod bootrom;
 mod bus;
 mod cpu;
 mod opcode;
 
+pub use bootrom::*;
 pub use bus::*;
 pub use cpu::*;
 
