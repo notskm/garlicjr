@@ -22,11 +22,13 @@ mod bus;
 mod cpu;
 mod opcode;
 mod ppu;
+mod system;
 
 pub use bootrom::*;
 pub use bus::*;
 pub use cpu::*;
 pub use ppu::*;
+pub use system::*;
 
 pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
