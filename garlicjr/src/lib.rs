@@ -20,6 +20,7 @@
 mod bootrom;
 mod bus;
 mod cpu;
+mod memory;
 mod opcode;
 mod ppu;
 mod system;
@@ -27,6 +28,7 @@ mod system;
 pub use bootrom::*;
 pub use bus::*;
 pub use cpu::*;
+pub use memory::*;
 pub use ppu::*;
 pub use system::*;
 
