@@ -1,13 +1,21 @@
-use crate::SharpSM83;
+use crate::{Bus, SharpSM83};
 
 pub struct System {
     pub cpu: SharpSM83,
+    pub bus: Bus,
 }
 
 impl System {
     pub fn new() -> Self {
         Self {
             cpu: SharpSM83::new(),
+            bus: Bus::new(),
+        }
+    }
+
+    pub fn run_cycle(&mut self) {
+        for _ in 0..4 {
+            self.cpu.tick(&mut self.bus);
         }
     }
 }
@@ -20,6 +28,8 @@ impl Default for System {
 
 #[cfg(test)]
 mod tests {
+    use rstest::rstest;
+
     use super::*;
 
     #[test]
@@ -59,5 +69,17 @@ mod tests {
         assert_eq!(system.cpu.registers.l, 0);
         assert_eq!(system.cpu.registers.program_counter, 0);
         assert_eq!(system.cpu.registers.stack_pointer, 0);
+    }
+
+    #[rstest]
+    #[case(0)]
+    #[case(1)]
+    fn should_run_a_cycle(#[case] start_address: u16) {
+        let mut system = System::new();
+        system.cpu.registers.program_counter = start_address;
+
+        system.run_cycle();
+
+        assert_eq!(system.cpu.registers.program_counter, start_address + 1);
     }
 }
