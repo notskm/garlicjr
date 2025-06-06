@@ -200,6 +200,7 @@ impl SharpSM83 {
             Opcode::IncReg16(register) => self.inc_r16(register),
             Opcode::DecReg16(register) => self.dec_r16(register),
 
+            Opcode::AndAReg8(register) => self.and_a_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::Rla => self.rla(),
 
@@ -724,6 +725,17 @@ impl SharpSM83 {
         }
     }
 
+    fn and_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            self.registers.a &= self.read_from_register(register);
+            self.set_flag(Flags::Z, self.registers.a == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, true);
+            self.set_flag(Flags::C, false);
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rla(&mut self) {
         self.rl_r8(Register8Bit::A);
         self.set_flag(Flags::Z, false);
@@ -1241,6 +1253,13 @@ mod tests {
     #[case("95.json", "")]
     #[case("96.json", "")]
     #[case("97.json", "")]
+    #[case("a0.json", "")]
+    #[case("a1.json", "")]
+    #[case("a2.json", "")]
+    #[case("a3.json", "")]
+    #[case("a4.json", "")]
+    #[case("a5.json", "")]
+    #[case("a7.json", "")]
     #[case("a8.json", "")]
     #[case("a9.json", "")]
     #[case("aa.json", "")]
