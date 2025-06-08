@@ -11,6 +11,8 @@ pub struct PpuRegisters {
     pub ly: u8,
     pub scx: u8,
     pub scy: u8,
+    pub wx: u8,
+    pub wy: u8,
 }
 
 impl Default for PPU {
@@ -26,6 +28,8 @@ impl PPU {
                 ly: 0,
                 scx: 0,
                 scy: 0,
+                wx: 0,
+                wy: 0,
             },
             current_dot: 0,
             vram_enabled: true,
@@ -75,6 +79,8 @@ mod tests {
         assert_eq!(ppu.registers.ly, 0);
         assert_eq!(ppu.registers.scx, 0);
         assert_eq!(ppu.registers.scy, 0);
+        assert_eq!(ppu.registers.wx, 0);
+        assert_eq!(ppu.registers.wy, 0);
     }
 
     #[rstest]
