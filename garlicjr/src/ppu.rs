@@ -9,6 +9,8 @@ pub struct PPU {
 
 pub struct PpuRegisters {
     pub ly: u8,
+    pub scx: u8,
+    pub scy: u8,
 }
 
 impl Default for PPU {
@@ -20,7 +22,11 @@ impl Default for PPU {
 impl PPU {
     pub fn new() -> Self {
         Self {
-            registers: PpuRegisters { ly: 0 },
+            registers: PpuRegisters {
+                ly: 0,
+                scx: 0,
+                scy: 0,
+            },
             current_dot: 0,
             vram_enabled: true,
             vram: RandomAccessMemory::new(0x1FFF),
@@ -67,6 +73,8 @@ mod tests {
     fn should_default_registers_to_0() {
         let ppu = PPU::default();
         assert_eq!(ppu.registers.ly, 0);
+        assert_eq!(ppu.registers.scx, 0);
+        assert_eq!(ppu.registers.scy, 0);
     }
 
     #[rstest]
