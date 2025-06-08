@@ -7,14 +7,6 @@ pub struct PPU {
     vram: RandomAccessMemory,
 }
 
-pub struct PpuRegisters {
-    pub ly: u8,
-    pub scx: u8,
-    pub scy: u8,
-    pub wx: u8,
-    pub wy: u8,
-}
-
 impl Default for PPU {
     fn default() -> Self {
         Self::new()
@@ -30,6 +22,8 @@ impl PPU {
                 scy: 0,
                 wx: 0,
                 wy: 0,
+                lcdc: 0,
+                stat: 0,
             },
             current_dot: 0,
             vram_enabled: true,
@@ -63,6 +57,22 @@ impl PPU {
     }
 }
 
+pub struct PpuRegisters {
+    pub ly: u8,
+    pub scx: u8,
+    pub scy: u8,
+    pub wx: u8,
+    pub wy: u8,
+    pub lcdc: u8,
+    stat: u8,
+}
+
+impl PpuRegisters {
+    pub fn get_stat(&self) -> u8 {
+        self.stat
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
@@ -81,6 +91,8 @@ mod tests {
         assert_eq!(ppu.registers.scy, 0);
         assert_eq!(ppu.registers.wx, 0);
         assert_eq!(ppu.registers.wy, 0);
+        assert_eq!(ppu.registers.get_stat(), 0);
+        assert_eq!(ppu.registers.lcdc, 0);
     }
 
     #[rstest]
