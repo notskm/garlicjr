@@ -33,6 +33,10 @@ impl PPU {
     }
 
     pub fn tick(&mut self) {
+        if !self.is_ppu_on() {
+            return;
+        }
+
         self.vram_enabled =
             self.current_dot < 80 || self.current_dot > 368 || self.registers.ly >= 144;
 
@@ -45,6 +49,10 @@ impl PPU {
             self.registers.ly += 1;
             self.registers.ly %= 154;
         }
+    }
+
+    fn is_ppu_on(&self) -> bool {
+        self.registers.lcdc & 0b10000000 > 0
     }
 
     fn set_stat_register(&mut self) {
@@ -116,12 +124,31 @@ mod tests {
         assert_eq!(ppu.registers.lcdc, 0);
     }
 
+    #[test]
+    fn should_do_nothing_when_lcdc_bit_7_is_0() {
+        let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b01010101;
+
+        for _ in 0..456 {
+            ppu.tick();
+            assert_eq!(ppu.registers.ly, 0);
+            assert_eq!(ppu.registers.lyc, 0);
+            assert_eq!(ppu.registers.scx, 0);
+            assert_eq!(ppu.registers.scy, 0);
+            assert_eq!(ppu.registers.wx, 0);
+            assert_eq!(ppu.registers.wy, 0);
+            assert_eq!(ppu.registers.lcdc, 0b01010101);
+            assert_eq!(ppu.registers.get_stat(), 0);
+        }
+    }
+
     #[rstest]
     fn should_store_2_in_stat_register_bits_0_and_1_during_oam_scan(
         #[values(0, 10, 42, 143)] ly: u8,
         #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.stat = stat_begin;
 
@@ -137,6 +164,7 @@ mod tests {
         #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.stat = stat_begin;
 
@@ -156,6 +184,7 @@ mod tests {
         #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.stat = stat_begin;
 
@@ -175,6 +204,7 @@ mod tests {
         #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.stat = stat_begin;
 
@@ -189,6 +219,7 @@ mod tests {
         #[values(0, 50, 143, 144, 153)] ly: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.lyc = ly;
 
@@ -204,6 +235,7 @@ mod tests {
         #[values(0, 50, 143, 144, 153)] ly: u8,
     ) {
         let mut ppu = PPU::default();
+        ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
         ppu.registers.stat = stat;
 
@@ -217,6 +249,7 @@ mod tests {
     fn should_read_0xff_from_vram_while_drawing_pixels(#[values(0, 10, 42, 143)] ly: u8) {
         let mut ppu = PPU::default();
         ppu.registers.ly = ly;
+        ppu.registers.lcdc = 0b10000000;
         for _ in 0..OAM_SCAN_LENGTH {
             ppu.tick();
         }
@@ -237,6 +270,7 @@ mod tests {
     ) {
         let mut ppu = PPU::default();
         ppu.registers.ly = ly;
+        ppu.registers.lcdc = 0b10000000;
         ppu.write_vram(address, data);
 
         for _ in 0..OAM_SCAN_LENGTH {
@@ -256,6 +290,7 @@ mod tests {
     ) {
         let mut ppu = PPU::default();
         ppu.registers.ly = ly;
+        ppu.registers.lcdc = 0b10000000;
         ppu.write_vram(address, data);
 
         for _ in 0..OAM_SCAN_LENGTH + DRAWING_PIXELS_MAX_LENGTH {
@@ -279,6 +314,7 @@ mod tests {
     ) {
         let mut ppu = PPU::default();
         ppu.registers.ly = ly;
+        ppu.registers.lcdc = 0b10000000;
         ppu.write_vram(address, data);
 
         for _ in 0..OAM_SCAN_LENGTH + DRAWING_PIXELS_MAX_LENGTH + HBLANK_MIN_LENGTH {
@@ -294,6 +330,7 @@ mod tests {
     fn should_increment_ly_after_456_dots(#[values(1, 5, 143, 152)] ly: u8) {
         let mut ppu = PPU::default();
         ppu.registers.ly = ly;
+        ppu.registers.lcdc = 0b10000000;
 
         for _ in 0..456 {
             ppu.tick();
@@ -307,6 +344,7 @@ mod tests {
     fn should_reset_ly_to_0_after_vblank() {
         let mut ppu = PPU::default();
         ppu.registers.ly = 153;
+        ppu.registers.lcdc = 0b10000000;
 
         for _ in 0..456 {
             ppu.tick();
