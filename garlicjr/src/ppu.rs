@@ -18,6 +18,7 @@ impl PPU {
         Self {
             registers: PpuRegisters {
                 ly: 0,
+                lyc: 0,
                 scx: 0,
                 scy: 0,
                 wx: 0,
@@ -35,6 +36,8 @@ impl PPU {
         self.vram_enabled =
             self.current_dot < 80 || self.current_dot > 368 || self.registers.ly >= 144;
 
+        self.set_stat_register();
+
         self.current_dot += 1;
         self.current_dot %= 456;
 
@@ -42,6 +45,23 @@ impl PPU {
             self.registers.ly += 1;
             self.registers.ly %= 154;
         }
+    }
+
+    fn set_stat_register(&mut self) {
+        self.registers.stat &= 0b11111000;
+
+        if self.registers.ly == self.registers.lyc {
+            self.registers.stat |= 0b00000100;
+        }
+
+        let state = match (self.registers.ly, self.current_dot) {
+            (144..=153, _) => 0b00000001,
+            (_, 0..80) => 0b00000010,
+            (_, 80..369) => 0b00000011,
+            (_, 369..) => 0b00000000,
+        };
+
+        self.registers.stat |= state;
     }
 
     pub fn read_vram(&self, address: u16) -> u8 {
@@ -59,6 +79,7 @@ impl PPU {
 
 pub struct PpuRegisters {
     pub ly: u8,
+    pub lyc: u8,
     pub scx: u8,
     pub scy: u8,
     pub wx: u8,
@@ -93,6 +114,103 @@ mod tests {
         assert_eq!(ppu.registers.wy, 0);
         assert_eq!(ppu.registers.get_stat(), 0);
         assert_eq!(ppu.registers.lcdc, 0);
+    }
+
+    #[rstest]
+    fn should_store_2_in_stat_register_bits_0_and_1_during_oam_scan(
+        #[values(0, 10, 42, 143)] ly: u8,
+        #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.stat = stat_begin;
+
+        for _ in 0..OAM_SCAN_LENGTH {
+            ppu.tick();
+            assert_eq!(ppu.registers.stat & 0b00000011, 2);
+        }
+    }
+
+    #[rstest]
+    fn should_store_3_in_stat_register_bits_0_and_1_while_drawing_pixels(
+        #[values(0, 10, 42, 143)] ly: u8,
+        #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.stat = stat_begin;
+
+        for _ in 0..OAM_SCAN_LENGTH {
+            ppu.tick();
+        }
+
+        for _ in 0..DRAWING_PIXELS_MAX_LENGTH {
+            ppu.tick();
+            assert_eq!(ppu.registers.stat & 0b00000011, 3);
+        }
+    }
+
+    #[rstest]
+    fn should_store_0_in_stat_register_bits_0_and_1_during_hblank(
+        #[values(0, 10, 42, 143)] ly: u8,
+        #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.stat = stat_begin;
+
+        for _ in 0..OAM_SCAN_LENGTH + DRAWING_PIXELS_MAX_LENGTH {
+            ppu.tick();
+        }
+
+        for _ in 0..HBLANK_MIN_LENGTH {
+            ppu.tick();
+            assert_eq!(ppu.registers.stat & 0b00000011, 0);
+        }
+    }
+
+    #[rstest]
+    fn should_store_1_in_stat_register_bits_0_and_1_during_vblank(
+        #[values(144, 145, 146, 147, 148, 149, 150, 151, 152, 153)] ly: u8,
+        #[values(0b11111111, 0b00000000, 0b10101010)] stat_begin: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.stat = stat_begin;
+
+        for _ in 0..456 {
+            ppu.tick();
+            assert_eq!(ppu.registers.stat & 0b00000011, 1);
+        }
+    }
+
+    #[rstest]
+    fn should_store_1_in_stat_register_bit_3_when_ly_and_lyc_are_identical(
+        #[values(0, 50, 143, 144, 153)] ly: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.lyc = ly;
+
+        for _ in 0..456 {
+            ppu.tick();
+            assert!((ppu.registers.stat & 0b00000100) > 0);
+        }
+    }
+
+    #[rstest]
+    fn should_not_change_upper_5_bits_of_stat_register(
+        #[values(0b00000000, 0b11111000, 0b10101000, 0b01010000)] stat: u8,
+        #[values(0, 50, 143, 144, 153)] ly: u8,
+    ) {
+        let mut ppu = PPU::default();
+        ppu.registers.ly = ly;
+        ppu.registers.stat = stat;
+
+        for _ in 0..456 {
+            ppu.tick();
+            assert_eq!(ppu.registers.stat & 0b11111000, stat);
+        }
     }
 
     #[rstest]
