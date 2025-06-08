@@ -1358,7 +1358,8 @@ mod tests {
     #[case("cb.json", "cb 7f")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str, #[case] filter: &str) {
         let test_data = {
-            let test_filepath = Path::new("test-data")
+            let test_filepath = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("test-data")
                 .join("json-tests")
                 .join("GameBoyCPUTests")
                 .join("v2")
