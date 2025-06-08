@@ -162,11 +162,11 @@ mod tests {
         let mut ppu = PPU::default();
         ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
-        ppu.registers.stat = stat_begin;
+        ppu.registers.set_stat(stat_begin);
 
         for _ in 0..OAM_SCAN_LENGTH {
             ppu.tick();
-            assert_eq!(ppu.registers.stat & 0b00000011, 2);
+            assert_eq!(ppu.registers.get_stat() & 0b00000011, 2);
         }
     }
 
@@ -178,7 +178,7 @@ mod tests {
         let mut ppu = PPU::default();
         ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
-        ppu.registers.stat = stat_begin;
+        ppu.registers.set_stat(stat_begin);
 
         for _ in 0..OAM_SCAN_LENGTH {
             ppu.tick();
@@ -186,7 +186,7 @@ mod tests {
 
         for _ in 0..DRAWING_PIXELS_MAX_LENGTH {
             ppu.tick();
-            assert_eq!(ppu.registers.stat & 0b00000011, 3);
+            assert_eq!(ppu.registers.get_stat() & 0b00000011, 3);
         }
     }
 
@@ -198,7 +198,7 @@ mod tests {
         let mut ppu = PPU::default();
         ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
-        ppu.registers.stat = stat_begin;
+        ppu.registers.set_stat(stat_begin);
 
         for _ in 0..OAM_SCAN_LENGTH + DRAWING_PIXELS_MAX_LENGTH {
             ppu.tick();
@@ -206,7 +206,7 @@ mod tests {
 
         for _ in 0..HBLANK_MIN_LENGTH {
             ppu.tick();
-            assert_eq!(ppu.registers.stat & 0b00000011, 0);
+            assert_eq!(ppu.registers.get_stat() & 0b00000011, 0);
         }
     }
 
@@ -218,11 +218,11 @@ mod tests {
         let mut ppu = PPU::default();
         ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
-        ppu.registers.stat = stat_begin;
+        ppu.registers.set_stat(stat_begin);
 
         for _ in 0..456 {
             ppu.tick();
-            assert_eq!(ppu.registers.stat & 0b00000011, 1);
+            assert_eq!(ppu.registers.get_stat() & 0b00000011, 1);
         }
     }
 
@@ -237,7 +237,7 @@ mod tests {
 
         for _ in 0..456 {
             ppu.tick();
-            assert!((ppu.registers.stat & 0b00000100) > 0);
+            assert!((ppu.registers.get_stat() & 0b00000100) > 0);
         }
     }
 
@@ -249,11 +249,11 @@ mod tests {
         let mut ppu = PPU::default();
         ppu.registers.lcdc = 0b10000000;
         ppu.registers.ly = ly;
-        ppu.registers.stat = stat;
+        ppu.registers.set_stat(stat);
 
         for _ in 0..456 {
             ppu.tick();
-            assert_eq!(ppu.registers.stat & 0b11111000, stat);
+            assert_eq!(ppu.registers.get_stat() & 0b11111000, stat);
         }
     }
 
