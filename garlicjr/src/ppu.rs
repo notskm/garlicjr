@@ -100,6 +100,11 @@ impl PpuRegisters {
     pub fn get_stat(&self) -> u8 {
         self.stat
     }
+
+    pub fn set_stat(&mut self, value: u8) {
+        self.stat &= 0b00000111;
+        self.stat |= value & 0b11111000;
+    }
 }
 
 #[cfg(test)]
@@ -122,6 +127,13 @@ mod tests {
         assert_eq!(ppu.registers.wy, 0);
         assert_eq!(ppu.registers.get_stat(), 0);
         assert_eq!(ppu.registers.lcdc, 0);
+    }
+
+    #[test]
+    fn should_ignore_last_three_bits_when_writing_to_stat() {
+        let mut ppu = PPU::default();
+        ppu.registers.set_stat(0b11111111);
+        assert_eq!(ppu.registers.get_stat(), 0b11111000);
     }
 
     #[test]
