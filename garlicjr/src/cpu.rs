@@ -1357,7 +1357,7 @@ mod tests {
     #[case("cb.json", "cb 7d")]
     #[case("cb.json", "cb 7f")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str, #[case] filter: &str) {
-        let test_data = {
+        let test_data: Vec<JsonTest> = {
             let test_filepath = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("test-data")
                 .join("json-tests")
@@ -1366,8 +1366,7 @@ mod tests {
                 .join(test_file);
 
             let buf = fs::read_to_string(test_filepath).unwrap();
-            let test_data: Vec<JsonTest> = serde_json::from_str(&buf).unwrap();
-            test_data
+            serde_json::from_str(&buf).unwrap()
         };
 
         let test_data = test_data
