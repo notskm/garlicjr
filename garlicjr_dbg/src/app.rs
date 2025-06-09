@@ -179,7 +179,7 @@ impl eframe::App for GarlicJrApp {
 
                     // NOTE: no File->Quit on web pages!
                     let is_web = cfg!(target_arch = "wasm32");
-                    if is_web && ui.button("Quit").clicked() {
+                    if !is_web && ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
