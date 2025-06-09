@@ -19,6 +19,8 @@
 
 mod cpu;
 mod ram;
+mod tile_data;
 
 pub use cpu::*;
 pub use ram::*;
+pub use tile_data::*;

@@ -56,11 +56,17 @@ pub struct GarlicJrApp {
 
     #[serde(skip)]
     screen_texture: Option<TextureHandle>,
+
+    #[serde(skip)]
+    tile_data_buffer: egui::ColorImage,
+
+    #[serde(skip)]
+    tile_data_texture: Option<TextureHandle>,
 }
 
 impl Default for GarlicJrApp {
     fn default() -> Self {
-        let color = egui::Color32::from_rgb(48, 98, 48);
+        let color = egui::Color32::GRAY;
 
         // Provide a default program for now
         let mut ram = vec![0; 65536];
@@ -73,6 +79,22 @@ impl Default for GarlicJrApp {
         ram[6] = 0x57;
         ram[7] = 0x3E;
         ram[8] = 0x00;
+
+        // Add a tileset to VRAM
+        const GARLICJR_TILES: [u8; 128] = [
+            0x00, 0x00, 0x1C, 0x1C, 0x22, 0x22, 0x20, 0x20, 0x2E, 0x2E, 0x22, 0x22, 0x1C, 0x1C,
+            0x00, 0x00, 0x18, 0x18, 0x24, 0x24, 0x24, 0x24, 0x3C, 0x3C, 0x42, 0x42, 0x42, 0x42,
+            0x42, 0x42, 0x00, 0x00, 0x1C, 0x1C, 0x22, 0x22, 0x42, 0x42, 0x44, 0x44, 0x78, 0x78,
+            0x50, 0x50, 0x48, 0x48, 0x46, 0x46, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
+            0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x3C, 0x3C, 0x6C, 0x6C, 0x10, 0x10, 0x10, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x6C, 0x6C, 0x3C, 0x3C, 0x42, 0x42,
+            0x82, 0x82, 0x80, 0x80, 0x80, 0x80, 0x82, 0x82, 0x42, 0x42, 0x3C, 0x3C, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x22, 0x22, 0x22, 0x1C, 0x1C,
+            0x1C, 0x1C, 0x22, 0x22, 0x42, 0x42, 0x44, 0x44, 0x78, 0x78, 0x50, 0x50, 0x48, 0x48,
+            0x46, 0x46,
+        ];
+
+        ram.splice(0x8000..0x8000 + GARLICJR_TILES.len(), GARLICJR_TILES);
 
         Self {
             bootrom_channel: channel(),
@@ -88,6 +110,11 @@ impl Default for GarlicJrApp {
                 pixels: [color; 160 * 144].to_vec(),
                 size: [160, 144],
             },
+            tile_data_buffer: egui::ColorImage {
+                pixels: [color; 8 * 16 * 8 * 24].to_vec(),
+                size: [8 * 16, 8 * 24],
+            },
+            tile_data_texture: None,
         }
     }
 }
@@ -226,6 +253,21 @@ impl eframe::App for GarlicJrApp {
             });
 
             texture.set(self.framebuffer.clone(), egui::TextureOptions::NEAREST);
+            ui.image((texture.id(), texture.size_vec2()));
+        });
+
+        egui::Window::new("Tile Data").show(ctx, |ui| {
+            let texture: &mut egui::TextureHandle =
+                self.tile_data_texture.get_or_insert_with(|| {
+                    ui.ctx().load_texture(
+                        "Tile Data",
+                        self.tile_data_buffer.clone(),
+                        egui::TextureOptions::NEAREST,
+                    )
+                });
+
+            tile_data(&self.ram, &mut self.tile_data_buffer);
+            texture.set(self.tile_data_buffer.clone(), egui::TextureOptions::NEAREST);
             ui.image((texture.id(), texture.size_vec2()));
         });
 
