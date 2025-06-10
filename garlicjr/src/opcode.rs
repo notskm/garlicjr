@@ -68,7 +68,7 @@ pub enum Opcode {
     AndAHlAddr,
     XorAReg8(Register8Bit),
     XorAHlAddr,
-    OrReg8(Register8Bit),
+    OrAReg8(Register8Bit),
     OrHLAddr,
     CpReg8(Register8Bit),
     CpHlAddr,
@@ -452,14 +452,14 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::XorAReg8(Register8Bit::L),
     Opcode::XorAHlAddr,
     Opcode::XorAReg8(Register8Bit::A),
-    Opcode::OrReg8(Register8Bit::B),
-    Opcode::OrReg8(Register8Bit::C),
-    Opcode::OrReg8(Register8Bit::D),
-    Opcode::OrReg8(Register8Bit::E),
-    Opcode::OrReg8(Register8Bit::H),
-    Opcode::OrReg8(Register8Bit::L),
+    Opcode::OrAReg8(Register8Bit::B),
+    Opcode::OrAReg8(Register8Bit::C),
+    Opcode::OrAReg8(Register8Bit::D),
+    Opcode::OrAReg8(Register8Bit::E),
+    Opcode::OrAReg8(Register8Bit::H),
+    Opcode::OrAReg8(Register8Bit::L),
     Opcode::OrHLAddr,
-    Opcode::OrReg8(Register8Bit::A),
+    Opcode::OrAReg8(Register8Bit::A),
     Opcode::CpReg8(Register8Bit::B),
     Opcode::CpReg8(Register8Bit::C),
     Opcode::CpReg8(Register8Bit::D),
@@ -1046,14 +1046,14 @@ mod tests {
     #[case(0b10101101, Opcode::XorAReg8(Register8Bit::L))]
     #[case(0b10101110, Opcode::XorAHlAddr)]
     #[case(0b10101111, Opcode::XorAReg8(Register8Bit::A))]
-    #[case(0xB0, Opcode::OrReg8(Register8Bit::B))]
-    #[case(0xB1, Opcode::OrReg8(Register8Bit::C))]
-    #[case(0xB2, Opcode::OrReg8(Register8Bit::D))]
-    #[case(0xB3, Opcode::OrReg8(Register8Bit::E))]
-    #[case(0xB4, Opcode::OrReg8(Register8Bit::H))]
-    #[case(0xB5, Opcode::OrReg8(Register8Bit::L))]
+    #[case(0xB0, Opcode::OrAReg8(Register8Bit::B))]
+    #[case(0xB1, Opcode::OrAReg8(Register8Bit::C))]
+    #[case(0xB2, Opcode::OrAReg8(Register8Bit::D))]
+    #[case(0xB3, Opcode::OrAReg8(Register8Bit::E))]
+    #[case(0xB4, Opcode::OrAReg8(Register8Bit::H))]
+    #[case(0xB5, Opcode::OrAReg8(Register8Bit::L))]
     #[case(0xB6, Opcode::OrHLAddr)]
-    #[case(0xB7, Opcode::OrReg8(Register8Bit::A))]
+    #[case(0xB7, Opcode::OrAReg8(Register8Bit::A))]
     #[case(0xB8, Opcode::CpReg8(Register8Bit::B))]
     #[case(0xB9, Opcode::CpReg8(Register8Bit::C))]
     #[case(0xBA, Opcode::CpReg8(Register8Bit::D))]

@@ -201,6 +201,7 @@ impl SharpSM83 {
             Opcode::DecReg16(register) => self.dec_r16(register),
 
             Opcode::AndAReg8(register) => self.and_a_r8(register),
+            Opcode::OrAReg8(register) => self.or_a_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::Rla => self.rla(),
 
@@ -731,6 +732,17 @@ impl SharpSM83 {
             self.set_flag(Flags::Z, self.registers.a == 0);
             self.set_flag(Flags::N, false);
             self.set_flag(Flags::H, true);
+            self.set_flag(Flags::C, false);
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn or_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            self.registers.a |= self.read_from_register(register);
+            self.set_flag(Flags::Z, self.registers.a == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
             self.set_flag(Flags::C, false);
             self.phase = Phase::Fetch;
         }
@@ -1267,6 +1279,13 @@ mod tests {
     #[case("ac.json", "")]
     #[case("ad.json", "")]
     #[case("af.json", "")]
+    #[case("b0.json", "")]
+    #[case("b1.json", "")]
+    #[case("b2.json", "")]
+    #[case("b3.json", "")]
+    #[case("b4.json", "")]
+    #[case("b5.json", "")]
+    #[case("b7.json", "")]
     #[case("be.json", "")]
     #[case("c1.json", "")]
     #[case("c5.json", "")]
