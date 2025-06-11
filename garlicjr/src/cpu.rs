@@ -205,6 +205,7 @@ impl SharpSM83 {
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::Rla => self.rla(),
 
+            Opcode::CpReg8(register) => self.cp_a_r8(register),
             Opcode::CpImm8 => self.cp_a_imm8(bus),
             Opcode::CpHlAddr => self.cp_a_hladdr(bus),
 
@@ -753,6 +754,17 @@ impl SharpSM83 {
         self.set_flag(Flags::Z, false);
     }
 
+    fn cp_a_r8(&mut self, register: Register8Bit) {
+        let data = self.read_from_register(register);
+        let (result, overflow) = self.registers.a.overflowing_sub(data);
+        let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+        self.set_flag(Flags::Z, result == 0);
+        self.set_flag(Flags::N, true);
+        self.set_flag(Flags::H, borrow_from_4);
+        self.set_flag(Flags::C, overflow);
+        self.phase = Phase::Fetch;
+    }
+
     fn cp_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -1286,7 +1298,14 @@ mod tests {
     #[case("b4.json", "")]
     #[case("b5.json", "")]
     #[case("b7.json", "")]
+    #[case("b8.json", "")]
+    #[case("b9.json", "")]
+    #[case("ba.json", "")]
+    #[case("bb.json", "")]
+    #[case("bc.json", "")]
+    #[case("bd.json", "")]
     #[case("be.json", "")]
+    #[case("bf.json", "")]
     #[case("c1.json", "")]
     #[case("c5.json", "")]
     #[case("c9.json", "")]
