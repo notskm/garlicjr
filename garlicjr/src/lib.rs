@@ -21,6 +21,7 @@ mod bootrom;
 mod bus;
 mod cpu;
 mod memory;
+mod number;
 mod opcode;
 mod ppu;
 mod system;

@@ -17,6 +17,7 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
+use crate::number::OverflowHalfCarry;
 use crate::opcode::{Cond, Opcode, Register8Bit, Register16Bit, Register16BitStack};
 use crate::{Bus, ReadWriteMode};
 
@@ -191,6 +192,7 @@ impl SharpSM83 {
             Opcode::LdhAImm8Addr => self.ldh_a_imm8addr(bus),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
+            Opcode::AdcAReg8(register) => self.adc_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::AddAHlAddr => self.add_a_hladdr(bus),
             Opcode::SubAHlAddr => self.sub_a_hladdr(bus),
@@ -595,6 +597,24 @@ impl SharpSM83 {
             self.set_flag(Flags::N, false);
             self.set_flag(Flags::H, overflow_from_3);
             self.set_flag(Flags::C, overflow_from_7);
+            self.registers.a = new_value;
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn adc_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+            let carry_flag = self.get_flag(Flags::C);
+
+            let (new_value, carry, half_carry) =
+                self.registers.a.full_overflowing_add(data, carry_flag);
+
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, half_carry);
+            self.set_flag(Flags::C, carry);
             self.registers.a = new_value;
 
             self.phase = Phase::Fetch;
@@ -1269,6 +1289,7 @@ mod tests {
     #[case("85.json", "")]
     #[case("86.json", "")]
     #[case("87.json", "")]
+    #[case("88.json", "")]
     #[case("90.json", "")]
     #[case("91.json", "")]
     #[case("92.json", "")]
