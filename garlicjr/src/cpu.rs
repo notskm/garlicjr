@@ -590,13 +590,13 @@ impl SharpSM83 {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
 
-            let (new_value, overflow_from_7) = self.registers.a.overflowing_add(data);
-            let overflow_from_3 = new_value & 0b00001111 < self.registers.a & 0b00001111;
+            let (new_value, carry, half_carry) =
+                self.registers.a.overflowing_add_with_half_carry(data);
 
             self.set_flag(Flags::Z, new_value == 0);
             self.set_flag(Flags::N, false);
-            self.set_flag(Flags::H, overflow_from_3);
-            self.set_flag(Flags::C, overflow_from_7);
+            self.set_flag(Flags::H, half_carry);
+            self.set_flag(Flags::C, carry);
             self.registers.a = new_value;
 
             self.phase = Phase::Fetch;
@@ -685,14 +685,13 @@ impl SharpSM83 {
     fn inc_r8(&mut self, register: Register8Bit) {
         let data = self.read_from_register(register);
 
-        let new_value = data.wrapping_add(1);
-        let overflow_from_3 = new_value & 0b00001111 < data & 0b00001111;
+        let (new_value, _, half_carry) = data.overflowing_add_with_half_carry(1);
 
         self.write_to_register(register, new_value);
 
         self.set_flag(Flags::Z, new_value == 0);
         self.set_flag(Flags::N, false);
-        self.set_flag(Flags::H, overflow_from_3);
+        self.set_flag(Flags::H, half_carry);
 
         self.phase = Phase::Fetch;
     }
