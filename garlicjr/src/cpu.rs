@@ -643,12 +643,12 @@ impl SharpSM83 {
     fn sub_a_r8(&mut self, register: Register8Bit) {
         let data = self.read_from_register(register);
 
-        let (new_value, borrow) = self.registers.a.overflowing_sub(data);
-        let borrow_from_4 = new_value & 0b00001111 > self.registers.a & 0b00001111;
+        let (new_value, borrow, half_borrow) =
+            self.registers.a.overflowing_sub_with_half_carry(data);
 
         self.set_flag(Flags::Z, new_value == 0);
         self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, borrow_from_4);
+        self.set_flag(Flags::H, half_borrow);
         self.set_flag(Flags::C, borrow);
         self.registers.a = new_value;
 
@@ -662,13 +662,13 @@ impl SharpSM83 {
                 bus.mode = ReadWriteMode::Read;
             }
             4 => {
-                let (new_value, overflow_from_7) = self.registers.a.overflowing_add(bus.data);
-                let overflow_from_3 = new_value & 0b00001111 < self.registers.a & 0b00001111;
+                let (new_value, carry, half_carry) =
+                    self.registers.a.overflowing_add_with_half_carry(bus.data);
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, false);
-                self.set_flag(Flags::H, overflow_from_3);
-                self.set_flag(Flags::C, overflow_from_7);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
                 self.registers.a = new_value;
             }
             6 => {
@@ -685,12 +685,12 @@ impl SharpSM83 {
                 bus.mode = ReadWriteMode::Read;
             }
             4 => {
-                let (new_value, borrow) = self.registers.a.overflowing_sub(bus.data);
-                let borrow_from_4 = new_value & 0b00001111 > self.registers.a & 0b00001111;
+                let (new_value, borrow, half_borrow) =
+                    self.registers.a.overflowing_sub_with_half_carry(bus.data);
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, true);
-                self.set_flag(Flags::H, borrow_from_4);
+                self.set_flag(Flags::H, half_borrow);
                 self.set_flag(Flags::C, borrow);
                 self.registers.a = new_value;
             }
@@ -718,14 +718,13 @@ impl SharpSM83 {
     fn dec_r8(&mut self, register: Register8Bit) {
         let data = self.read_from_register(register);
 
-        let new_value = data.wrapping_sub(1);
-        let borrow_from_4 = new_value & 0b00001111 > data & 0b00001111;
+        let (new_value, _, half_borrow) = data.overflowing_sub_with_half_carry(1);
 
         self.write_to_register(register, new_value);
 
         self.set_flag(Flags::Z, new_value == 0);
         self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, borrow_from_4);
+        self.set_flag(Flags::H, half_borrow);
 
         self.phase = Phase::Fetch;
     }
@@ -794,12 +793,13 @@ impl SharpSM83 {
 
     fn cp_a_r8(&mut self, register: Register8Bit) {
         let data = self.read_from_register(register);
-        let (result, overflow) = self.registers.a.overflowing_sub(data);
-        let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+
+        let (result, borrow, half_borrow) = self.registers.a.overflowing_sub_with_half_carry(data);
+
         self.set_flag(Flags::Z, result == 0);
         self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, borrow_from_4);
-        self.set_flag(Flags::C, overflow);
+        self.set_flag(Flags::H, half_borrow);
+        self.set_flag(Flags::C, borrow);
         self.phase = Phase::Fetch;
     }
 
@@ -810,12 +810,12 @@ impl SharpSM83 {
                 self.increment_program_counter();
             }
             4 => {
-                let (result, overflow) = self.registers.a.overflowing_sub(bus.data);
-                let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+                let (result, borrow, half_borrow) =
+                    self.registers.a.overflowing_sub_with_half_carry(bus.data);
                 self.set_flag(Flags::Z, result == 0);
                 self.set_flag(Flags::N, true);
-                self.set_flag(Flags::H, borrow_from_4);
-                self.set_flag(Flags::C, overflow);
+                self.set_flag(Flags::H, half_borrow);
+                self.set_flag(Flags::C, borrow);
             }
             6 => {
                 self.phase = Phase::Fetch;
@@ -831,12 +831,13 @@ impl SharpSM83 {
                 bus.mode = ReadWriteMode::Read;
             }
             4 => {
-                let (result, overflow) = self.registers.a.overflowing_sub(bus.data);
-                let borrow_from_4 = result & 0b00001111 > self.registers.a & 0b00001111;
+                let (result, borrow, half_borrow) =
+                    self.registers.a.overflowing_sub_with_half_carry(bus.data);
+
                 self.set_flag(Flags::Z, result == 0);
                 self.set_flag(Flags::N, true);
-                self.set_flag(Flags::H, borrow_from_4);
-                self.set_flag(Flags::C, overflow);
+                self.set_flag(Flags::H, half_borrow);
+                self.set_flag(Flags::C, borrow);
             }
             6 => {
                 self.phase = Phase::Fetch;
