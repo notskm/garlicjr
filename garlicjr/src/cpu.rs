@@ -192,10 +192,11 @@ impl SharpSM83 {
             Opcode::LdhAImm8Addr => self.ldh_a_imm8addr(bus),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
-            Opcode::AdcAReg8(register) => self.adc_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
             Opcode::AddAHlAddr => self.add_a_hladdr(bus),
             Opcode::SubAHlAddr => self.sub_a_hladdr(bus),
+            Opcode::AdcAReg8(register) => self.adc_a_r8(register),
+            Opcode::SbcAReg8(register) => self.sbc_a_r8(register),
 
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
@@ -613,6 +614,24 @@ impl SharpSM83 {
 
             self.set_flag(Flags::Z, new_value == 0);
             self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, half_carry);
+            self.set_flag(Flags::C, carry);
+            self.registers.a = new_value;
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn sbc_a_r8(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
+            let carry_flag = self.get_flag(Flags::C);
+
+            let (new_value, carry, half_carry) =
+                self.registers.a.full_overflowing_sub(data, carry_flag);
+
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, true);
             self.set_flag(Flags::H, half_carry);
             self.set_flag(Flags::C, carry);
             self.registers.a = new_value;
@@ -1297,6 +1316,13 @@ mod tests {
     #[case("95.json", "")]
     #[case("96.json", "")]
     #[case("97.json", "")]
+    #[case("98.json", "")]
+    #[case("99.json", "")]
+    #[case("9a.json", "")]
+    #[case("9b.json", "")]
+    #[case("9c.json", "")]
+    #[case("9d.json", "")]
+    #[case("9f.json", "")]
     #[case("a0.json", "")]
     #[case("a1.json", "")]
     #[case("a2.json", "")]

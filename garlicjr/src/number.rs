@@ -20,12 +20,14 @@
 pub trait OverflowHalfCarry<T> {
     fn overflowing_add_with_half_carry(self, rhs: T) -> (T, bool, bool);
     fn full_overflowing_add(self, rhs: T, carry: bool) -> (T, bool, bool);
+    fn overflowing_sub_with_half_carry(self, rhs: T) -> (T, bool, bool);
+    fn full_overflowing_sub(self, rhs: T, carry: bool) -> (T, bool, bool);
 }
 
 impl OverflowHalfCarry<u8> for u8 {
     fn overflowing_add_with_half_carry(self, rhs: u8) -> (u8, bool, bool) {
         let (value, carry) = self.overflowing_add(rhs);
-        let half_carry = (self & 0xF) + (rhs & 0xF) > 0xF;
+        let half_carry = ((self & 0xF) + (rhs & 0xF)) & 0x10 > 0;
         (value, carry, half_carry)
     }
 
@@ -34,6 +36,21 @@ impl OverflowHalfCarry<u8> for u8 {
 
         let (value, c1, h1) = self.overflowing_add_with_half_carry(rhs);
         let (value, c2, h2) = value.overflowing_add_with_half_carry(carry);
+
+        (value, c1 || c2, h1 || h2)
+    }
+
+    fn overflowing_sub_with_half_carry(self, rhs: u8) -> (u8, bool, bool) {
+        let (value, carry) = self.overflowing_sub(rhs);
+        let half_carry = (self & 0xF).wrapping_sub(rhs & 0xF) & 0x10 > 0;
+        (value, carry, half_carry)
+    }
+
+    fn full_overflowing_sub(self, rhs: u8, carry: bool) -> (u8, bool, bool) {
+        let carry = carry as u8;
+
+        let (value, c1, h1) = self.overflowing_sub_with_half_carry(rhs);
+        let (value, c2, h2) = value.overflowing_sub_with_half_carry(carry);
 
         (value, c1 || c2, h1 || h2)
     }
@@ -188,6 +205,144 @@ mod tests {
     ) {
         let (value, _, _) = lhs.full_overflowing_add(rhs, carry);
         let (expected, _) = lhs.wrapping_add(carry as u8).overflowing_add(rhs);
+        assert_eq!(value, expected);
+    }
+
+    #[rstest]
+    #[case(0, 1)]
+    #[case(240, 255)]
+    #[case(10, 42)]
+    fn should_return_true_full_carry_when_overflowing_sub_overflows(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+    ) {
+        let (_, carry, _) = lhs.overflowing_sub_with_half_carry(rhs);
+        assert!(carry);
+    }
+
+    #[rstest]
+    #[case(255, 0)]
+    #[case(123, 100)]
+    #[case(50, 10)]
+    fn should_return_false_full_carry_when_overflowing_sub_does_not_overflow(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+    ) {
+        let (_, carry, _) = lhs.overflowing_sub_with_half_carry(rhs);
+        assert!(!carry);
+    }
+
+    #[rstest]
+    #[case(0b11110000, 1)]
+    #[case(0b00000000, 1)]
+    #[case(0b00000100, 0b00001000)]
+    fn should_return_true_half_carry_when_overflowing_sub_low_nibble_overflows(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+    ) {
+        let (_, _, half_carry) = lhs.overflowing_sub_with_half_carry(rhs);
+        assert!(half_carry);
+    }
+
+    #[rstest]
+    #[case(0b00001111, 0)]
+    #[case(0b11111111, 0)]
+    #[case(0b00001100, 0b00000001)]
+    #[case(0b00000011, 0b00000011)]
+    fn should_return_false_half_carry_when_overflowing_sub_low_nibble_does_not_overflow(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+    ) {
+        let (_, _, half_carry) = lhs.overflowing_sub_with_half_carry(rhs);
+        assert!(!half_carry);
+    }
+
+    #[rstest]
+    #[case(0b00001111, 1)]
+    #[case(1, 0b00001111)]
+    #[case(0b11111111, 1)]
+    #[case(1, 0b11111111)]
+    #[case(0b00001100, 30)]
+    #[case(30, 0b00001100)]
+    fn should_return_same_value_as_overflowing_sub(#[case] lhs: u8, #[case] rhs: u8) {
+        let (value, _, _) = lhs.overflowing_sub_with_half_carry(rhs);
+        let (expected, _) = lhs.overflowing_sub(rhs);
+        assert_eq!(value, expected);
+    }
+
+    #[rstest]
+    #[case(255, 255, true)]
+    #[case(0, 255, false)]
+    #[case(123, 123, true)]
+    #[case(123, 200, false)]
+    fn should_return_true_full_carry_when_full_sub_overflows(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+        #[case] carry: bool,
+    ) {
+        let (_, new_carry, _) = lhs.full_overflowing_sub(rhs, carry);
+        assert!(new_carry);
+    }
+
+    #[rstest]
+    #[case(255, 0, false)]
+    #[case(254, 1, false)]
+    #[case(254, 0, true)]
+    #[case(123, 20, true)]
+    #[case(123, 20, false)]
+    fn should_return_false_full_carry_when_full_sub_does_not_overflow(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+        #[case] carry: bool,
+    ) {
+        let (_, new_carry, _) = lhs.full_overflowing_sub(rhs, carry);
+        assert!(!new_carry);
+    }
+
+    #[rstest]
+    #[case(0b11110001, 1, true)]
+    #[case(0b11110000, 0, true)]
+    #[case(0b11110000, 1, false)]
+    #[case(0b00000000, 0, true)]
+    #[case(0b00000000, 1, false)]
+    #[case(0b00000100, 0b00001000, false)]
+    fn should_return_true_half_carry_when_full_sub_low_nibble_overflows(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+        #[case] carry: bool,
+    ) {
+        let (v, _, _) = lhs.full_overflowing_sub(rhs, carry);
+        println!("{v:08b}");
+        let (_, _, half_carry) = lhs.full_overflowing_sub(rhs, carry);
+        assert!(half_carry);
+    }
+
+    #[rstest]
+    #[case(0b00001111, 0, true)]
+    #[case(0b00001111, 0, false)]
+    #[case(0b11111111, 0, true)]
+    #[case(0b11111111, 0, false)]
+    #[case(0b00000010, 0b00000001, true)]
+    #[case(0b00000010, 0b00000001, false)]
+    #[case(0b00000010, 0b00000010, false)]
+    #[case(0b00000010, 0b00000010, false)]
+    fn should_return_false_half_carry_when_full_sub_low_nibble_does_not_overflow(
+        #[case] lhs: u8,
+        #[case] rhs: u8,
+        #[case] carry: bool,
+    ) {
+        let (_, _, half_carry) = lhs.full_overflowing_sub(rhs, carry);
+        assert!(!half_carry);
+    }
+
+    #[rstest]
+    fn should_return_same_value_as_overflowing_sub_plus_carry(
+        #[values(0, 5, 255, 123, 32)] lhs: u8,
+        #[values(0, 5, 255, 123, 32)] rhs: u8,
+        #[values(true, false)] carry: bool,
+    ) {
+        let (value, _, _) = lhs.full_overflowing_sub(rhs, carry);
+        let (expected, _) = lhs.wrapping_sub(carry as u8).overflowing_sub(rhs);
         assert_eq!(value, expected);
     }
 }
