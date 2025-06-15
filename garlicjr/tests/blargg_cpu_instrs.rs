@@ -19,8 +19,13 @@
 
 use std::{fs::File, path::Path};
 
-use garlicjr::{Cartridge, ReadWriteMode, System};
+use garlicjr::{Cartridge, Color, ReadWriteMode, Screen, System};
 use rstest::rstest;
+
+struct PixelBuffer;
+impl Screen for PixelBuffer {
+    fn set_pixel(&mut self, _: u8, _: u8, _: Color) {}
+}
 
 #[rstest]
 // #[case::cpu_instrs_01_special("01-special", 0)]
@@ -48,7 +53,8 @@ fn should_pass_blargg_cpu_instrs_tests(#[case] test_file: &str, #[case] seconds:
     let mut last_char = '\0';
     const ONE_MEBIHERTZ: i32 = 1048576;
     for _ in 0..ONE_MEBIHERTZ * seconds {
-        dmg.run_cycle();
+        let mut screen = PixelBuffer {};
+        dmg.run_cycle(&mut screen);
 
         // These tests write ASCII data to the link port at 0xFF01. They
         // write 0x81 to 0xFF02 immediately afterward. It's important to

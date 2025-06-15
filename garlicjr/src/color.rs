@@ -28,6 +28,32 @@ impl Color {
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
         Color { r, g, b }
     }
+
+    pub const BLACK: Self = Self { r: 0, g: 0, b: 0 };
+
+    pub const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
+
+    pub const GRAY: Self = Self {
+        r: 100,
+        g: 100,
+        b: 100,
+    };
+
+    pub const LIGHT_GRAY: Self = Self {
+        r: 150,
+        g: 150,
+        b: 150,
+    };
+
+    pub const DARK_GRAY: Self = Self {
+        r: 50,
+        g: 50,
+        b: 50,
+    };
 }
 
 #[cfg(test)]

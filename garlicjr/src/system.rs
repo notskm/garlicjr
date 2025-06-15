@@ -17,7 +17,9 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::{Bus, Cartridge, DmgBootrom, PPU, RandomAccessMemory, ReadWriteMode, SharpSM83, Timer};
+use crate::{
+    Bus, Cartridge, DmgBootrom, PPU, RandomAccessMemory, ReadWriteMode, Screen, SharpSM83, Timer,
+};
 
 pub struct System {
     pub cpu: SharpSM83,
@@ -48,19 +50,24 @@ impl System {
         }
     }
 
-    pub fn run_cycle(&mut self) {
+    pub fn load_bootrom(&mut self, bootrom: DmgBootrom) {
+        self.bootrom = Some(bootrom);
+    }
+
+    pub fn run_cycle(&mut self, screen: &mut impl Screen) {
         for _ in 0..4 {
             self.cpu.tick(&mut self.bus);
-            self.ppu.tick();
+            self.ppu.tick(screen);
             self.timer.tick();
             if self.timer.interrupt_requested() {
                 self.write(0xFF0F, 0b00000100);
             }
         }
 
-        match self.bus.mode {
-            ReadWriteMode::Read => self.bus.data = self.read(self.bus.address),
-            ReadWriteMode::Write => self.write(self.bus.address, self.bus.data),
+        if self.bus.mode == ReadWriteMode::Read {
+            self.bus.data = self.read(self.bus.address);
+        } else {
+            self.write(self.bus.address, self.bus.data);
         }
     }
 
@@ -141,7 +148,14 @@ impl Default for System {
 mod tests {
     use rstest::rstest;
 
+    use crate::Color;
+
     use super::*;
+
+    struct PixelBuffer;
+    impl Screen for PixelBuffer {
+        fn set_pixel(&mut self, _: u8, _: u8, _: Color) {}
+    }
 
     #[test]
     fn should_return_a_default_system() {
@@ -194,7 +208,9 @@ mod tests {
         let mut system = System::new();
         system.cpu.registers.program_counter = start_address;
 
-        system.run_cycle();
+        let mut screen = PixelBuffer {};
+
+        system.run_cycle(&mut screen);
 
         assert_eq!(system.cpu.registers.program_counter, start_address + 1);
     }

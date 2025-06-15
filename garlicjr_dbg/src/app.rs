@@ -28,6 +28,20 @@ use web_time::Instant;
 const REPO_URL: Option<&str> = option_env!("GARLICJR_REPO_URL");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+struct PixelBufferInterface<'a> {
+    buffer: &'a mut egui::ColorImage,
+}
+
+impl Screen for PixelBufferInterface<'_> {
+    fn set_pixel(&mut self, x: u8, y: u8, color: Color) {
+        if x as usize >= self.buffer.width() || y as usize >= self.buffer.height() {
+            return;
+        }
+        let color = egui::Color32::from_rgba_unmultiplied(color.r, color.g, color.b, 255);
+        self.buffer[(x as usize, y as usize)] = color;
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct GarlicJrApp {
@@ -123,7 +137,10 @@ impl eframe::App for GarlicJrApp {
         if self.running {
             let cycles = (1_048_576f32 * elapsed_time.as_secs_f32()) as u64;
             for _ in 0..cycles {
-                self.dmg_system.run_cycle();
+                let mut screen = PixelBufferInterface {
+                    buffer: &mut self.framebuffer,
+                };
+                self.dmg_system.run_cycle(&mut screen);
             }
         }
 

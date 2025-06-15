@@ -69,7 +69,7 @@ pub fn cpu_gui(ui: &mut egui::Ui, dmg: &mut System, running: &mut bool) {
             ui.end_row();
 
             if ui.button("Step").clicked() {
-                dmg.run_cycle();
+                // dmg.run_cycle();
             }
 
             ui.checkbox(running, "Run");
