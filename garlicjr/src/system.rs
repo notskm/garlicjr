@@ -17,11 +17,12 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::{Bus, SharpSM83};
+use crate::{Bus, DmgBootrom, ReadWriteMode, SharpSM83};
 
 pub struct System {
     pub cpu: SharpSM83,
     pub bus: Bus,
+    pub bootrom: Option<DmgBootrom>,
 }
 
 impl System {
@@ -29,6 +30,7 @@ impl System {
         Self {
             cpu: SharpSM83::new(),
             bus: Bus::new(),
+            bootrom: None,
         }
     }
 
@@ -36,7 +38,30 @@ impl System {
         for _ in 0..4 {
             self.cpu.tick(&mut self.bus);
         }
+
+        match self.bus.mode {
+            ReadWriteMode::Read => self.bus.data = self.read(),
+            ReadWriteMode::Write => self.write(),
+        }
+
+        if self.bus.mode == ReadWriteMode::Read {
+            self.bus.data = self.read();
+        }
     }
+
+    fn read(&self) -> u8 {
+        let address = self.bus.address as usize;
+        match self.bus.address {
+            0x0000..0x0100 => self
+                .bootrom
+                .as_ref()
+                .map(|rom| rom.data().get(address).cloned().unwrap_or(0xFF))
+                .unwrap_or(0xFF),
+            _ => 0xFFu8,
+        }
+    }
+
+    fn write(&self) {}
 }
 
 impl Default for System {
@@ -72,6 +97,10 @@ mod tests {
             default_system.cpu.registers.stack_pointer,
             new_system.cpu.registers.stack_pointer
         );
+        assert_eq!(
+            default_system.bootrom.is_none(),
+            new_system.bootrom.is_none()
+        );
     }
 
     #[test]
@@ -88,6 +117,7 @@ mod tests {
         assert_eq!(system.cpu.registers.l, 0);
         assert_eq!(system.cpu.registers.program_counter, 0);
         assert_eq!(system.cpu.registers.stack_pointer, 0);
+        assert!(system.bootrom.is_none());
     }
 
     #[rstest]
