@@ -17,19 +17,43 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use std::{io::Read, string::FromUtf8Error};
+use std::io::Read;
 
 pub struct Cartridge {
     title: String,
 }
 
-impl Cartridge {
-    pub fn from_reader(mut reader: impl Read) -> Result<Self, FromUtf8Error> {
-        let mut buf: Vec<u8> = vec![];
-        let _bytes_read = reader.read_to_end(&mut buf);
+#[derive(Debug)]
+pub enum ReadError {
+    BadSize { size: usize },
+    NonAsciiTitle { bytes: Vec<u8> },
+    IoError(std::io::Error),
+}
 
-        let title_data = buf[0x134..=0x143].to_ascii_uppercase();
-        let title = String::from_utf8(title_data)?
+const TITLE_RANGE: std::ops::RangeInclusive<usize> = 0x0134..=0x143;
+
+impl Cartridge {
+    pub fn from_reader(mut reader: impl Read) -> Result<Self, ReadError> {
+        let mut buf: Vec<u8> = vec![];
+
+        let result = reader.read_to_end(&mut buf);
+
+        match result {
+            Ok(size) if size % 16384 != 0 => {
+                return Err(ReadError::BadSize { size });
+            }
+            Ok(_) => (),
+            Err(err) => return Err(ReadError::IoError(err)),
+        }
+
+        let title_data = buf[TITLE_RANGE].to_vec();
+
+        if !title_data.is_ascii() {
+            return Err(ReadError::NonAsciiTitle { bytes: title_data });
+        }
+
+        let title = String::from_utf8(title_data)
+            .unwrap()
             .trim_matches('\0')
             .to_string();
 
@@ -53,7 +77,7 @@ mod tests {
     ) {
         let title_bytes = title.as_bytes();
 
-        let mut cartridge_data = [0u8; 1000];
+        let mut cartridge_data = [0u8; 16384];
         cartridge_data[0x134..0x134 + title_bytes.len()].copy_from_slice(title_bytes);
 
         let cartridge = Cartridge::from_reader(&cartridge_data[..]).unwrap();
@@ -67,22 +91,41 @@ mod tests {
 
         let title_bytes = title.as_bytes();
 
-        let mut cartridge_data = [0u8; 1024];
+        let mut cartridge_data = [0u8; 16384];
         cartridge_data[0x134..0x134 + title_bytes.len()].copy_from_slice(title_bytes);
 
         let cartridge = Cartridge::from_reader(&cartridge_data[..]).unwrap();
         assert_eq!(cartridge.title(), expected);
     }
 
-    #[test]
-    fn should_return_error_if_title_cannot_be_interpreted_as_utf8() {
-        let title = "元気元気元気元";
+    #[rstest]
+    fn should_return_error_if_title_cannot_be_interpreted_as_ascii(
+        #[values("元abc\0\0\0\0\0\0\0\0\0\0", "元気元気元a")] title: &str,
+    ) {
         let title_bytes = title.as_bytes();
 
-        let mut cartridge_data = [0u8; 1000];
+        let mut cartridge_data = [0u8; 16384];
         cartridge_data[0x134..0x134 + title_bytes.len()].copy_from_slice(title_bytes);
 
         let result = Cartridge::from_reader(&cartridge_data[..]);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(ReadError::NonAsciiTitle { bytes }) if bytes == title_bytes));
+    }
+
+    #[rstest]
+    fn should_return_cartridge_if_the_rom_is_a_multiple_of_16_kib(
+        #[values(16384, 16384*2, 16384*3)] size: usize,
+    ) {
+        let cartridge_data = vec![0u8; size];
+        let result = Cartridge::from_reader(&cartridge_data[..]);
+        assert!(result.is_ok());
+    }
+
+    #[rstest]
+    fn should_return_error_if_the_rom_is_not_a_multiple_of_16_kib(
+        #[values(1, 1000, 16)] size: usize,
+    ) {
+        let cartridge_data = vec![0u8; size];
+        let result = Cartridge::from_reader(&cartridge_data[..]);
+        assert!(matches!(result, Err(ReadError::BadSize{size: bytes}) if bytes == size));
     }
 }
