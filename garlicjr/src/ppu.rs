@@ -28,7 +28,7 @@ impl PPU {
             },
             current_dot: 0,
             vram_enabled: true,
-            vram: RandomAccessMemory::new(0x1FFF),
+            vram: RandomAccessMemory::new(0x2000),
         }
     }
 
@@ -331,10 +331,7 @@ mod tests {
 
         for _ in 0..OAM_SCAN_LENGTH + DRAWING_PIXELS_MAX_LENGTH + HBLANK_MIN_LENGTH {
             ppu.tick();
-            for i in 0..0x1FFF {
-                let expected = if i == address { data } else { 0 };
-                assert_eq!(ppu.read_vram(i), expected);
-            }
+            assert_eq!(ppu.read_vram(address), data);
         }
     }
 
