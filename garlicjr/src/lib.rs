@@ -19,6 +19,7 @@
 
 mod bootrom;
 mod bus;
+mod cartridge;
 mod cpu;
 mod memory;
 mod number;
@@ -28,6 +29,7 @@ mod system;
 
 pub use bootrom::*;
 pub use bus::*;
+pub use cartridge::Cartridge;
 pub use cpu::*;
 pub use memory::*;
 pub use ppu::*;
