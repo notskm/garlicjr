@@ -268,7 +268,7 @@ mod tests {
 
         for _ in 0..DRAWING_PIXELS_MAX_LENGTH {
             ppu.tick();
-            for i in 0..0x1FFF {
+            for i in 0..=0x1FFF {
                 assert_eq!(ppu.read_vram(i), 0xFF);
             }
         }
@@ -287,10 +287,7 @@ mod tests {
 
         for _ in 0..OAM_SCAN_LENGTH {
             ppu.tick();
-            for i in 0..0x1FFF {
-                let expected = if i == address { data } else { 0 };
-                assert_eq!(ppu.read_vram(i), expected);
-            }
+            assert_eq!(ppu.read_vram(address), data);
         }
     }
 
@@ -311,10 +308,7 @@ mod tests {
 
         for _ in 0..HBLANK_MIN_LENGTH {
             ppu.tick();
-            for i in 0..0x1FFF {
-                let expected = if i == address { data } else { 0 };
-                assert_eq!(ppu.read_vram(i), expected);
-            }
+            assert_eq!(ppu.read_vram(address), data);
         }
     }
 
