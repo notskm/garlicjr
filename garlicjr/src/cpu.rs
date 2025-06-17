@@ -212,6 +212,7 @@ impl SharpSM83 {
             Opcode::CpImm8 => self.cp_a_imm8(bus),
             Opcode::CpHlAddr => self.cp_a_hladdr(bus),
 
+            Opcode::JpImm16 => self.jp_imm16(bus),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
             Opcode::JrImm8 => self.jr_imm8(bus),
 
@@ -846,6 +847,26 @@ impl SharpSM83 {
         }
     }
 
+    fn jp_imm16(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                self.increment_program_counter();
+            }
+            4 => {
+                bus.address = self.registers.program_counter;
+                self.registers.program_counter &= 0b1111111100000000;
+                self.registers.program_counter |= bus.data as u16;
+            }
+            8 => {
+                self.registers.program_counter &= 0b0000000011111111;
+                self.registers.program_counter |= (bus.data as u16) << 8;
+            }
+            14 => self.phase = Phase::Fetch,
+            _ => (),
+        }
+    }
+
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
         let should_jump = match condition {
             Cond::Z => self.registers.f & Flags::Z as u8 > 0,
@@ -1360,6 +1381,7 @@ mod tests {
     #[case("be.json")]
     #[case("bf.json")]
     #[case("c1.json")]
+    #[case("c3.json")]
     #[case("c5.json")]
     #[case("c9.json")]
     #[case("cd.json")]
