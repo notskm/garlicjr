@@ -47,7 +47,14 @@ impl Cartridge {
             Err(err) => return Err(ReadError::IoError(err)),
         }
 
-        let title_data = data[TITLE_RANGE].to_vec();
+        let mut title_data = data[TITLE_RANGE].to_vec();
+
+        let cgb_enhanced = title_data[title_data.len() - 1] == 0x80;
+        let cgb_only = title_data[title_data.len() - 1] == 0xC0;
+
+        if cgb_enhanced || cgb_only {
+            title_data.pop();
+        }
 
         if !title_data.is_ascii() {
             return Err(ReadError::NonAsciiTitle { bytes: title_data });
@@ -114,6 +121,19 @@ mod tests {
 
         let result = Cartridge::from_reader(&cartridge_data[..]);
         assert!(matches!(result, Err(ReadError::NonAsciiTitle { bytes }) if bytes == title_bytes));
+    }
+
+    #[rstest]
+    fn should_return_title_when_address_0x0143_is_0x80() {
+        let title = "THIS IS A TITLE";
+        let mut title_bytes = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80];
+        title_bytes[0..15].copy_from_slice(title.as_bytes());
+
+        let mut cartridge_data = [0u8; 16384];
+        cartridge_data[0x134..=0x143].copy_from_slice(&title_bytes);
+
+        let cartridge = Cartridge::from_reader(&cartridge_data[..]).unwrap();
+        assert_eq!(cartridge.title(), title)
     }
 
     #[rstest]
