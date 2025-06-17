@@ -21,6 +21,7 @@ use std::io::Read;
 
 pub struct Cartridge {
     title: String,
+    data: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -34,9 +35,9 @@ const TITLE_RANGE: std::ops::RangeInclusive<usize> = 0x0134..=0x143;
 
 impl Cartridge {
     pub fn from_reader(mut reader: impl Read) -> Result<Self, ReadError> {
-        let mut buf: Vec<u8> = vec![];
+        let mut data: Vec<u8> = vec![];
 
-        let result = reader.read_to_end(&mut buf);
+        let result = reader.read_to_end(&mut data);
 
         match result {
             Ok(size) if size % 16384 != 0 => {
@@ -46,7 +47,7 @@ impl Cartridge {
             Err(err) => return Err(ReadError::IoError(err)),
         }
 
-        let title_data = buf[TITLE_RANGE].to_vec();
+        let title_data = data[TITLE_RANGE].to_vec();
 
         if !title_data.is_ascii() {
             return Err(ReadError::NonAsciiTitle { bytes: title_data });
@@ -57,11 +58,15 @@ impl Cartridge {
             .trim_matches('\0')
             .to_string();
 
-        Ok(Cartridge { title })
+        Ok(Cartridge { title, data })
     }
 
     pub fn title(&self) -> &str {
         &self.title
+    }
+
+    pub fn read(&self, address: u16) -> Option<u8> {
+        self.data.get(address as usize).copied()
     }
 }
 
@@ -127,5 +132,20 @@ mod tests {
         let cartridge_data = vec![0u8; size];
         let result = Cartridge::from_reader(&cartridge_data[..]);
         assert!(matches!(result, Err(ReadError::BadSize{size: bytes}) if bytes == size));
+    }
+
+    #[rstest]
+    fn should_read_0000_to_7fff_when_rom_has_no_memory_bank_controller(
+        #[values(0x0000, 0x7FFF, 0x1234, 0x4242)] address: u16,
+        #[values(0xFF, 0xAB, 0x42)] data: u8,
+    ) {
+        let mut cartridge_data = [0u8; 16384 * 2];
+        cartridge_data[0x0147] = 0x00; // This 'cartridge' is ROM only
+        cartridge_data[0x0148] = 0x00; // This 'cartridge' has 32KiB of ROM
+        cartridge_data[0x0149] = 0x00; // This 'cartridge' has no RAM
+        cartridge_data[address as usize] = data;
+
+        let cartridge = Cartridge::from_reader(&cartridge_data[..]).unwrap();
+        assert_eq!(cartridge.read(address).unwrap(), data);
     }
 }
