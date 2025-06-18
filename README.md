@@ -10,7 +10,10 @@ GarlicJr is aiming to be a cross-platform, [cycle accurate](https://retrocomputi
 - Compiles to WebAssembly
 - Linux & Windows support
   - MacOS is untested
-- Debugging features
+- Debugging
+  - Step over cycles
+  - Hardware views
+  - View tiles in VRAM
 - Low to No-dependency core
   - Should compile virtually anywhere
 
