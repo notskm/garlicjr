@@ -28,3 +28,6 @@ The front-end for GarlicJr is built using [Trunk](https://trunkrs.dev/) when com
 cd garlicjr_dbg
 trunk build --release
 ```
+
+### License
+GarlicJr is licensed under the [GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.en.html). See the [COPYING](./COPYING) file for details.
