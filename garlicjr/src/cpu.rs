@@ -198,6 +198,7 @@ impl SharpSM83 {
             Opcode::AdcAReg8(register) => self.adc_a_r8(register),
             Opcode::SbcAReg8(register) => self.sbc_a_r8(register),
             Opcode::AddAImm8 => self.add_a_imm8(bus),
+            Opcode::SubImm8 => self.sub_a_imm8(bus),
 
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
@@ -656,6 +657,29 @@ impl SharpSM83 {
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
+                self.registers.a = new_value;
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn sub_a_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                let (new_value, carry, half_carry) =
+                    self.registers.a.overflowing_sub_with_half_carry(bus.data);
+
+                self.set_flag(Flags::Z, new_value == 0);
+                self.set_flag(Flags::N, true);
                 self.set_flag(Flags::H, half_carry);
                 self.set_flag(Flags::C, carry);
                 self.registers.a = new_value;
@@ -1488,6 +1512,7 @@ mod tests {
     #[case("d1.json")]
     #[case("d4.json")]
     #[case("d5.json")]
+    #[case("d6.json")]
     #[case("dc.json")]
     #[case("e0.json")]
     #[case("e1.json")]
