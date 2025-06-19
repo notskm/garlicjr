@@ -207,6 +207,7 @@ impl SharpSM83 {
             Opcode::OrAReg8(register) => self.or_a_r8(register),
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::Rla => self.rla(),
+            Opcode::AndImm8 => self.and_a_imm8(bus),
 
             Opcode::CpReg8(register) => self.cp_a_r8(register),
             Opcode::CpImm8 => self.cp_a_imm8(bus),
@@ -790,6 +791,26 @@ impl SharpSM83 {
     fn rla(&mut self) {
         self.rl_r8(Register8Bit::A);
         self.set_flag(Flags::Z, false);
+    }
+
+    fn and_a_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                self.registers.a &= bus.data;
+                self.set_flag(Flags::Z, self.registers.a == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, true);
+                self.set_flag(Flags::C, false);
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
     }
 
     fn cp_a_r8(&mut self, register: Register8Bit) {
@@ -1391,6 +1412,7 @@ mod tests {
     #[case("e1.json")]
     #[case("e2.json")]
     #[case("e5.json")]
+    #[case("e6.json")]
     #[case("ea.json")]
     #[case("f0.json")]
     #[case("f1.json")]
