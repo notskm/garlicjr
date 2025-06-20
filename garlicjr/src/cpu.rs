@@ -226,6 +226,7 @@ impl SharpSM83 {
             Opcode::CallImm16 => self.call_imm16(bus),
             Opcode::CallCondImm16(condition) => self.call_cond_imm16(condition, bus),
             Opcode::Ret => self.ret(bus),
+            Opcode::RetCond(condition) => self.ret_cond(condition, bus),
             Opcode::PushReg16Stack(register) => self.push_r16_stack(register, bus),
             Opcode::PopReg16Stack(register) => self.pop_r16_stack(register, bus),
 
@@ -1175,6 +1176,45 @@ impl SharpSM83 {
         }
     }
 
+    fn ret_cond(&mut self, condition: Cond, bus: &mut Bus) {
+        match self.current_tick {
+            4 => {
+                bus.address = self.registers.stack_pointer;
+                bus.mode = ReadWriteMode::Read;
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
+            }
+            6 => {
+                let should_return = match condition {
+                    Cond::Nz => !self.get_flag(Flags::Z),
+                    Cond::Z => self.get_flag(Flags::Z),
+                    Cond::Nc => !self.get_flag(Flags::C),
+                    Cond::C => self.get_flag(Flags::C),
+                };
+
+                if !should_return {
+                    self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+                    self.phase = Phase::Fetch;
+                }
+            }
+            8 => {
+                self.registers.program_counter &= 0xFF00;
+                self.registers.program_counter |= bus.data as u16;
+
+                bus.address = self.registers.stack_pointer;
+                bus.mode = ReadWriteMode::Read;
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
+            }
+            12 => {
+                self.registers.program_counter &= 0x00FF;
+                self.registers.program_counter |= (bus.data as u16) << 8;
+            }
+            18 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn push_r16_stack(&mut self, register: Register16BitStack, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -1616,19 +1656,23 @@ mod tests {
     #[case("bd.json")]
     #[case("be.json")]
     #[case("bf.json")]
+    #[case("c0.json")]
     #[case("c1.json")]
     #[case("c3.json")]
     #[case("c4.json")]
     #[case("c5.json")]
     #[case("c6.json")]
+    #[case("c8.json")]
     #[case("c9.json")]
     #[case("cc.json")]
     #[case("cd.json")]
     #[case("ce.json")]
+    #[case("d0.json")]
     #[case("d1.json")]
     #[case("d4.json")]
     #[case("d5.json")]
     #[case("d6.json")]
+    #[case("d8.json")]
     #[case("dc.json")]
     #[case("e0.json")]
     #[case("e1.json")]
