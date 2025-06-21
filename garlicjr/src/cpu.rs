@@ -200,6 +200,7 @@ impl SharpSM83 {
             Opcode::SbcAReg8(register) => self.sbc_a_r8(register),
             Opcode::AddAImm8 => self.add_a_imm8(bus),
             Opcode::SubImm8 => self.sub_a_imm8(bus),
+            Opcode::AddHlR16(register) => self.add_hl_r16(register),
 
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
@@ -783,6 +784,34 @@ impl SharpSM83 {
                 self.set_flag(Flags::C, borrow);
                 self.registers.a = new_value;
             }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn add_hl_r16(&mut self, register: Register16Bit) {
+        match self.current_tick {
+            2 => {
+                let value = self.read_from_16_bit_register(register);
+                let hl = self.read_from_16_bit_register(Register16Bit::HL);
+
+                let [hl_high, hl_low] = hl.to_be_bytes();
+                let [val_high, val_low] = value.to_be_bytes();
+
+                let (new_low, low_carry) = hl_low.overflowing_add(val_low);
+                let (new_high, carry, half_carry) =
+                    hl_high.full_overflowing_add(val_high, low_carry);
+
+                self.write_to_16_bit_register_low(Register16Bit::HL, new_low);
+                self.write_to_16_bit_register_high(Register16Bit::HL, new_high);
+
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
+            }
+            4 => {}
             6 => {
                 self.phase = Phase::Fetch;
             }
@@ -1571,6 +1600,7 @@ mod tests {
     #[case("04.json")]
     #[case("05.json")]
     #[case("06.json")]
+    #[case("09.json")]
     #[case("0e.json")]
     #[case("0a.json")]
     #[case("0b.json")]
@@ -1584,6 +1614,7 @@ mod tests {
     #[case("16.json")]
     #[case("17.json")]
     #[case("18.json")]
+    #[case("19.json")]
     #[case("1a.json")]
     #[case("1b.json")]
     #[case("1c.json")]
@@ -1598,6 +1629,7 @@ mod tests {
     #[case("25.json")]
     #[case("26.json")]
     #[case("28.json")]
+    #[case("29.json")]
     #[case("2a.json")]
     #[case("2b.json")]
     #[case("2c.json")]
@@ -1609,6 +1641,7 @@ mod tests {
     #[case("33.json")]
     #[case("34.json")]
     #[case("35.json")]
+    #[case("39.json")]
     #[case("3a.json")]
     #[case("3b.json")]
     #[case("3c.json")]
