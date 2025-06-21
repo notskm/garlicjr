@@ -142,6 +142,8 @@ impl SharpSM83 {
             Opcode::Nop => self.no_op(),
             Opcode::Prefix => self.prefix(),
 
+            Opcode::Di => self.no_op(),
+
             Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
             Opcode::LdReg8Reg8 {
                 source,

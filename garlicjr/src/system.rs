@@ -17,12 +17,17 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::{Bus, DmgBootrom, ReadWriteMode, SharpSM83};
+use crate::{Bus, Cartridge, DmgBootrom, RandomAccessMemory, ReadWriteMode, SharpSM83};
 
 pub struct System {
     pub cpu: SharpSM83,
     pub bus: Bus,
     pub bootrom: Option<DmgBootrom>,
+    pub cartridge: Option<Cartridge>,
+    pub work_ram_1: RandomAccessMemory,
+    pub work_ram_2: RandomAccessMemory,
+    pub high_ram: RandomAccessMemory,
+    pub bootrom_enable_register: u8,
 }
 
 impl System {
@@ -31,6 +36,11 @@ impl System {
             cpu: SharpSM83::new(),
             bus: Bus::new(),
             bootrom: None,
+            cartridge: None,
+            work_ram_1: RandomAccessMemory::new(4096),
+            work_ram_2: RandomAccessMemory::new(4096),
+            high_ram: RandomAccessMemory::new(126),
+            bootrom_enable_register: 0,
         }
     }
 
@@ -40,28 +50,49 @@ impl System {
         }
 
         match self.bus.mode {
-            ReadWriteMode::Read => self.bus.data = self.read(),
-            ReadWriteMode::Write => self.write(),
-        }
-
-        if self.bus.mode == ReadWriteMode::Read {
-            self.bus.data = self.read();
+            ReadWriteMode::Read => self.bus.data = self.read(self.bus.address),
+            ReadWriteMode::Write => self.write(self.bus.address, self.bus.data),
         }
     }
 
-    fn read(&self) -> u8 {
-        let address = self.bus.address as usize;
-        match self.bus.address {
-            0x0000..0x0100 => self
+    pub fn read(&self, address: u16) -> u8 {
+        match address {
+            0x0000..0x0100 if self.bootrom_enabled() => self
                 .bootrom
                 .as_ref()
-                .map(|rom| rom.data().get(address).cloned().unwrap_or(0xFF))
+                .map(|rom| rom.data().get(address as usize).cloned().unwrap_or(0xFF))
                 .unwrap_or(0xFF),
+            0x0000..0x0100 if !self.bootrom_enabled() => self
+                .cartridge
+                .as_ref()
+                .map(|cart| cart.read(address).unwrap_or(0xFF))
+                .unwrap_or(0xFF),
+            0x0100..=0x7FFF if !self.bootrom_enabled() => self
+                .cartridge
+                .as_ref()
+                .map(|cart| cart.read(address).unwrap_or(0xFF))
+                .unwrap_or(0xFF),
+            0xC000..=0xCFFF => self.work_ram_1.read(address - 0xC000).unwrap_or(0xFF),
+            0xD000..=0xDFFF => self.work_ram_2.read(address - 0xD000).unwrap_or(0xFF),
+            0xFF50 => self.bootrom_enable_register,
+            0xFF80..=0xFFFE => self.high_ram.read(address - 0xFF80).unwrap_or(0xFF),
             _ => 0xFFu8,
         }
     }
 
-    fn write(&self) {}
+    fn write(&mut self, address: u16, data: u8) {
+        match address {
+            0xC000..=0xCFFF => self.work_ram_1.write(address - 0xC000, data),
+            0xD000..=0xDFFF => self.work_ram_2.write(address - 0xD000, data),
+            0xFF50 => self.bootrom_enable_register = data,
+            0xFF80..=0xFFFE => self.high_ram.write(address - 0xFF80, data),
+            _ => (),
+        }
+    }
+
+    pub fn bootrom_enabled(&self) -> bool {
+        self.bootrom_enable_register == 0
+    }
 }
 
 impl Default for System {
