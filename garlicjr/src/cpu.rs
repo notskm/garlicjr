@@ -241,6 +241,7 @@ impl SharpSM83 {
             Opcode::Rr(register) => self.rr_r8(register),
             Opcode::Bit(mask, register) => self.bit(mask, register),
             Opcode::Srl(register) => self.srl(register),
+            Opcode::Swap(register) => self.swap(register),
 
             Opcode::Unimplemented(_) => {}
             _ => {}
@@ -1478,6 +1479,24 @@ impl SharpSM83 {
         }
     }
 
+    fn swap(&mut self, register: Register8Bit) {
+        if self.current_tick == 2 {
+            let value = self.read_from_register(register);
+
+            let mut new_value = value << 4;
+            new_value |= value >> 4;
+
+            self.write_to_register(register, new_value);
+
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, false);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rlc_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
@@ -1834,6 +1853,7 @@ mod tests {
     #[case("cb_1c.json")]
     #[case("cb_1d.json")]
     #[case("cb_1f.json")]
+    #[case("cb_30.json")]
     #[case("cb_38.json")]
     #[case("cb_38.json")]
     #[case("cb_39.json")]
