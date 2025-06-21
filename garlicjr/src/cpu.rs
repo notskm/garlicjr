@@ -205,6 +205,7 @@ impl SharpSM83 {
             Opcode::DecReg8(register) => self.dec_r8(register),
             Opcode::IncReg16(register) => self.inc_r16(register),
             Opcode::DecReg16(register) => self.dec_r16(register),
+            Opcode::DecHlAddr => self.dec_hl_addr(bus),
 
             Opcode::AndAReg8(register) => self.and_a_r8(register),
             Opcode::OrAReg8(register) => self.or_a_r8(register),
@@ -834,6 +835,31 @@ impl SharpSM83 {
                 self.sub_from_16_bit_register(register, 1);
             }
             6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn dec_hl_addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let (new_value, _, half_carry) = bus.data.overflowing_sub_with_half_carry(1);
+
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.data = new_value;
+                bus.mode = ReadWriteMode::Write;
+
+                self.set_flag(Flags::Z, new_value == 0);
+                self.set_flag(Flags::N, true);
+                self.set_flag(Flags::H, half_carry);
+            }
+            8 => {}
+            10 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -1555,6 +1581,7 @@ mod tests {
     #[case("31.json")]
     #[case("32.json")]
     #[case("33.json")]
+    #[case("35.json")]
     #[case("3a.json")]
     #[case("3b.json")]
     #[case("3c.json")]
