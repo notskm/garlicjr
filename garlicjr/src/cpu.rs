@@ -224,6 +224,7 @@ impl SharpSM83 {
             Opcode::CpHlAddr => self.cp_a_hladdr(bus),
 
             Opcode::JpImm16 => self.jp_imm16(bus),
+            Opcode::JpHl => self.jp_hl(),
             Opcode::JrCondImm8(condition) => self.jr_cond_imm8(condition, bus),
             Opcode::JrImm8 => self.jr_imm8(bus),
 
@@ -1122,6 +1123,13 @@ impl SharpSM83 {
         }
     }
 
+    fn jp_hl(&mut self) {
+        if self.current_tick == 2 {
+            self.registers.program_counter = self.read_from_16_bit_register(Register16Bit::HL);
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn jr_cond_imm8(&mut self, condition: crate::opcode::Cond, bus: &mut Bus) {
         let should_jump = match condition {
             Cond::Z => self.registers.f & Flags::Z as u8 > 0,
@@ -1795,6 +1803,7 @@ mod tests {
     #[case("e2.json")]
     #[case("e5.json")]
     #[case("e6.json")]
+    #[case("e9.json")]
     #[case("ea.json")]
     #[case("ee.json")]
     #[case("f0.json")]
