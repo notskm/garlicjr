@@ -284,6 +284,7 @@ impl SharpSM83 {
         match self.current_tick {
             2 => {
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.increment_program_counter();
             }
             4 => {
@@ -291,6 +292,7 @@ impl SharpSM83 {
                 self.write_to_16_bit_register_low(register, low);
 
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.increment_program_counter();
             }
             8 => {
@@ -340,6 +342,7 @@ impl SharpSM83 {
         match self.current_tick {
             2 => {
                 bus.address = self.read_from_16_bit_register(source);
+                bus.mode = ReadWriteMode::Read;
             }
             4 => {
                 self.write_to_register(destination, bus.data);
@@ -999,10 +1002,12 @@ impl SharpSM83 {
         match self.current_tick {
             2 => {
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.increment_program_counter();
             }
             4 => {
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.registers.program_counter &= 0b1111111100000000;
                 self.registers.program_counter |= bus.data as u16;
             }
@@ -1026,6 +1031,7 @@ impl SharpSM83 {
         match (self.current_tick, should_jump) {
             (2, _) => {
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.increment_program_counter();
             }
             (4, true) => {
@@ -1045,6 +1051,7 @@ impl SharpSM83 {
         match self.current_tick {
             2 => {
                 bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
                 self.increment_program_counter();
             }
             4 => {
