@@ -79,7 +79,7 @@ pub enum Opcode {
     PushReg16Stack(Register16BitStack),
     JpCondImm16(Cond),
     JpImm16,
-    JpHlAddr,
+    JpHl,
     CallCondImm16(Cond),
     CallImm16,
     Rst(RstTarget),
@@ -509,7 +509,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::AndImm8,
     Opcode::Rst(RstTarget::Addr20),
     Opcode::AddSpImm8,
-    Opcode::JpHlAddr,
+    Opcode::JpHl,
     Opcode::LdImm16AddrA,
     Opcode::Unimplemented(0xEB),
     Opcode::Unimplemented(0xEC),
@@ -1081,7 +1081,7 @@ mod tests {
     #[case(0xCA, Opcode::JpCondImm16(Cond::Z))]
     #[case(0xDA, Opcode::JpCondImm16(Cond::C))]
     #[case(0xC3, Opcode::JpImm16)]
-    #[case(0xE9, Opcode::JpHlAddr)]
+    #[case(0xE9, Opcode::JpHl)]
     #[case(0xC4, Opcode::CallCondImm16(Cond::Nz))]
     #[case(0xD4, Opcode::CallCondImm16(Cond::Nc))]
     #[case(0xCC, Opcode::CallCondImm16(Cond::Z))]
