@@ -193,6 +193,7 @@ impl SharpSM83 {
             Opcode::LdAImm16Addr => self.ld_a_imm16addr(bus),
             Opcode::LdhImm8AddrA => self.ldh_imm8addr_a(bus),
             Opcode::LdhAImm8Addr => self.ldh_a_imm8addr(bus),
+            Opcode::LdSpHl => self.ld_sp_hl(),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
@@ -536,6 +537,23 @@ impl SharpSM83 {
                 self.registers.a = bus.data;
             }
             10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_sp_hl(&mut self) {
+        match self.current_tick {
+            2 => {
+                let value = self.read_from_register(Register8Bit::L);
+                self.write_to_16_bit_register_low(Register16Bit::SP, value);
+            }
+            4 => {
+                let value = self.read_from_register(Register8Bit::H);
+                self.write_to_16_bit_register_high(Register16Bit::SP, value);
+            }
+            6 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -1874,6 +1892,7 @@ mod tests {
     #[case("f1.json")]
     #[case("f2.json")]
     #[case("f5.json")]
+    #[case("f9.json")]
     #[case("fa.json")]
     #[case("fe.json")]
     #[case("cb_00.json")]
