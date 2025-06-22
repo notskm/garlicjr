@@ -188,6 +188,7 @@ impl SharpSM83 {
             }
             Opcode::LdCAddrA => self.ld_caddr_a(bus),
             Opcode::LdACAddr => self.ld_a_caddr(bus),
+            Opcode::LdImm16AddrSp => self.ld_imm16addr_sp(bus),
             Opcode::LdImm16AddrA => self.ld_imm16addr_a(bus),
             Opcode::LdAImm16Addr => self.ld_a_imm16addr(bus),
             Opcode::LdhImm8AddrA => self.ldh_imm8addr_a(bus),
@@ -424,6 +425,47 @@ impl SharpSM83 {
                 bus.mode = ReadWriteMode::Write;
             }
             14 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_imm16addr_sp(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+            }
+            4 => {
+                bus.address = self.registers.program_counter;
+                bus.mode = ReadWriteMode::Read;
+                self.increment_program_counter();
+
+                self.temp_16_bit = bus.data as u16;
+            }
+            8 => {
+                self.temp_16_bit |= (bus.data as u16) << 8;
+
+                let [_, low] = self
+                    .read_from_16_bit_register(Register16Bit::SP)
+                    .to_be_bytes();
+
+                bus.address = self.temp_16_bit;
+                bus.data = low;
+                bus.mode = ReadWriteMode::Write;
+            }
+            12 => {
+                let [high, _] = self
+                    .read_from_16_bit_register(Register16Bit::SP)
+                    .to_be_bytes();
+
+                bus.address = self.temp_16_bit.wrapping_add(1);
+                bus.data = high;
+                bus.mode = ReadWriteMode::Write;
+            }
+            18 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -1629,6 +1671,7 @@ mod tests {
     #[case("04.json")]
     #[case("05.json")]
     #[case("06.json")]
+    #[case("08.json")]
     #[case("09.json")]
     #[case("0e.json")]
     #[case("0a.json")]
