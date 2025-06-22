@@ -32,6 +32,8 @@ jobs:
           submodules: recursive
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.TARGET }}
 
       - name: Build
         run: cargo build --release --target=${{ matrix.TARGET }}
