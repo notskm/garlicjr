@@ -194,6 +194,7 @@ impl SharpSM83 {
             Opcode::LdhImm8AddrA => self.ldh_imm8addr_a(bus),
             Opcode::LdhAImm8Addr => self.ldh_a_imm8addr(bus),
             Opcode::LdSpHl => self.ld_sp_hl(),
+            Opcode::LdHlSpPlusImm8 => self.ld_hl_sp_plus_imm8(bus),
 
             Opcode::AddAReg8(register) => self.add_a_r8(register),
             Opcode::SubAReg8(register) => self.sub_a_r8(register),
@@ -556,6 +557,34 @@ impl SharpSM83 {
                 self.write_to_16_bit_register_high(Register16Bit::SP, value);
             }
             6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_hl_sp_plus_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                let [_, sp_low] = self.registers.stack_pointer.to_be_bytes();
+                let (_, carry, half_carry) = sp_low.overflowing_add_with_half_carry(bus.data);
+                self.set_flag(Flags::Z, false);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
+            }
+            8 => {
+                let new_value = self
+                    .registers
+                    .stack_pointer
+                    .wrapping_add_signed(bus.data as i8 as i16);
+                self.write_to_16_bit_register(Register16Bit::HL, new_value);
+            }
+            10 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -1968,6 +1997,7 @@ mod tests {
     #[case("f1.json")]
     #[case("f2.json")]
     #[case("f5.json")]
+    #[case("f8.json")]
     #[case("f9.json")]
     #[case("fa.json")]
     #[case("fe.json")]
