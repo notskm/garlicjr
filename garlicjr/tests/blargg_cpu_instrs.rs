@@ -6,7 +6,7 @@ use rstest::rstest;
 #[rstest]
 // #[case("01-special", 0)]
 // #[case("02-interrupts", 0)]
-// #[case("03-op sp,hl", 0)]
+#[case("03-op sp,hl", 3)]
 // #[case("04-op r,imm", 0)]
 #[case("05-op rp", 4)]
 #[case("06-ld r,r", 2)]
