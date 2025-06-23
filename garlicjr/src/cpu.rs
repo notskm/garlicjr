@@ -205,6 +205,7 @@ impl SharpSM83 {
             Opcode::AddAImm8 => self.add_a_imm8(bus),
             Opcode::SubImm8 => self.sub_a_imm8(bus),
             Opcode::AddHlR16(register) => self.add_hl_r16(register),
+            Opcode::AddSpImm8 => self.add_sp_imm8(bus),
 
             Opcode::IncReg8(register) => self.inc_r8(register),
             Opcode::DecReg8(register) => self.dec_r8(register),
@@ -878,6 +879,38 @@ impl SharpSM83 {
             }
             4 => {}
             6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn add_sp_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                let data = bus.data;
+
+                let [_, sp_low] = self.registers.stack_pointer.to_be_bytes();
+
+                let (_, carry, half_carry) = sp_low.overflowing_add_with_half_carry(data);
+
+                self.registers.stack_pointer = self
+                    .registers
+                    .stack_pointer
+                    .wrapping_add_signed(data as i8 as i16);
+
+                self.set_flag(Flags::Z, false);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
+            }
+            8 => {}
+            12 => {}
+            14 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -1927,6 +1960,7 @@ mod tests {
     #[case("e2.json")]
     #[case("e5.json")]
     #[case("e6.json")]
+    #[case("e8.json")]
     #[case("e9.json")]
     #[case("ea.json")]
     #[case("ee.json")]
