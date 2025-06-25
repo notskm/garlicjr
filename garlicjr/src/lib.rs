@@ -26,6 +26,7 @@ mod number;
 mod opcode;
 mod ppu;
 mod system;
+mod timer;
 
 pub use bootrom::*;
 pub use bus::*;
@@ -34,6 +35,7 @@ pub use cpu::*;
 pub use memory::*;
 pub use ppu::*;
 pub use system::*;
+pub use timer::Timer;
 
 pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
