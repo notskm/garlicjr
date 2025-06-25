@@ -7,7 +7,13 @@ pub struct Timer {
 impl Timer {
     pub fn tick(&mut self) {
         if self.should_increment_tima() {
-            self.registers.tima = self.registers.tima.wrapping_add(1);
+            let (new_tima, overflow) = self.registers.tima.overflowing_add(1);
+
+            self.registers.tima = if overflow {
+                self.registers.tma
+            } else {
+                new_tima
+            }
         }
 
         self.tima_counter += 1;
@@ -142,5 +148,22 @@ mod tests {
                 timer.tick();
             }
         }
+    }
+
+    #[rstest]
+    fn should_reset_tima_to_tma_on_overflow(#[values(0x00, 0xFF, 0xFE, 0x42)] tma: u8) {
+        let mut timer = Timer::default();
+        timer.registers.tma = tma;
+        timer.registers.tac = 0b00000101;
+
+        while timer.registers.tima < 0xFF {
+            timer.tick();
+        }
+
+        for _ in 0..16 {
+            timer.tick();
+        }
+
+        assert_eq!(timer.registers.tima, timer.registers.tma);
     }
 }
