@@ -5,11 +5,15 @@ pub struct Timer {
 
 pub struct Registers {
     tac: u8,
+    pub tima: u8,
 }
 
 impl Default for Registers {
     fn default() -> Self {
-        Self { tac: 0b11111000 }
+        Self {
+            tac: 0b11111000,
+            tima: 0,
+        }
     }
 }
 
@@ -33,6 +37,12 @@ mod tests {
     fn should_default_tac_to_0b11111000() {
         let timer = Timer::default();
         assert_eq!(timer.registers.get_tac(), 0b11111000);
+    }
+
+    #[test]
+    fn should_default_tima_to_0() {
+        let timer = Timer::default();
+        assert_eq!(timer.registers.tima, 0);
     }
 
     #[rstest]
