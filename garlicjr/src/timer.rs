@@ -1,21 +1,31 @@
 #[derive(Default)]
 pub struct Timer {
     pub registers: Registers,
-    current_tick: u16,
+    tima_counter: u16,
 }
 
 impl Timer {
     pub fn tick(&mut self) {
         if self.should_increment_tima() {
-            self.registers.tima += 1;
-            self.current_tick = 0;
-        } else {
-            self.current_tick += 1;
+            self.registers.tima = self.registers.tima.wrapping_add(1);
+        }
+
+        self.tima_counter += 1;
+        if self.tima_counter >= self.increment_frequency() {
+            self.tima_counter = 0;
         }
     }
 
     fn should_increment_tima(&self) -> bool {
-        self.registers.tac & 0b00000100 > 0 && self.current_tick == self.increment_frequency() - 1
+        self.is_tima_enabled() && self.is_time_to_increment_tima()
+    }
+
+    fn is_tima_enabled(&self) -> bool {
+        self.registers.tac & 0b00000100 > 0
+    }
+
+    fn is_time_to_increment_tima(&self) -> bool {
+        self.tima_counter == self.increment_frequency() - 1
     }
 
     fn increment_frequency(&self) -> u16 {
@@ -119,6 +129,18 @@ mod tests {
             // Detect the increment
             timer.tick();
             assert_eq!(timer.registers.tima, expected);
+        }
+    }
+
+    #[rstest]
+    fn should_not_panic_when_running_for_a_long_time(#[values(0b00000000, 0b00000101)] tac: u8) {
+        let mut timer = Timer::default();
+        timer.registers.tac = tac;
+
+        for _ in 0..2 {
+            for _ in 0..u16::MAX {
+                timer.tick();
+            }
         }
     }
 }
