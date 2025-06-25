@@ -23,8 +23,7 @@ use crate::{Bus, ReadWriteMode};
 
 pub struct SharpSM83 {
     pub registers: Registers,
-    #[allow(dead_code)]
-    interrupt_master_enable: bool,
+    interrupt_master_enable: InterruptEnableFlag,
     current_tick: u8,
     opcode: Opcode,
     phase: Phase,
@@ -45,10 +44,19 @@ pub struct Registers {
     pub stack_pointer: u16,
     pub program_counter: u16,
     pub interrupt_enable: u8,
+    pub interrupt_flags: u8,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum InterruptEnableFlag {
+    Enabled,
+    Disabled,
+    ShouldEnable,
 }
 
 enum Phase {
     Execute,
+    HandleInterrupt,
     Decode,
     Fetch,
 }
@@ -82,8 +90,9 @@ impl SharpSM83 {
                 stack_pointer: 0,
                 program_counter: 0,
                 interrupt_enable: 0,
+                interrupt_flags: 0,
             },
-            interrupt_master_enable: false,
+            interrupt_master_enable: InterruptEnableFlag::Disabled,
             current_tick: 0,
             opcode: Opcode::Nop,
             phase: Phase::Decode,
@@ -95,16 +104,16 @@ impl SharpSM83 {
     pub fn tick(&mut self, bus: &mut Bus) {
         match self.phase {
             Phase::Decode => {
-                match self.current_tick {
-                    0 => {
-                        self.read_opcode(bus);
-                    }
-                    1 => {
-                        self.phase = Phase::Execute;
-                    }
-                    _ => (),
+                if self.check_interrupts() {
+                    self.phase = Phase::HandleInterrupt;
+                } else {
+                    self.decode(bus);
                 }
                 self.current_tick += 1;
+            }
+            Phase::HandleInterrupt => {
+                self.handle_interrupt(bus);
+                self.current_tick = self.current_tick.saturating_add(1);
             }
             Phase::Execute => {
                 self.execute_opcode(bus);
@@ -115,7 +124,25 @@ impl SharpSM83 {
                 self.phase = Phase::Decode;
                 self.current_tick = 0;
                 self.increment_program_counter();
+
+                if self.interrupt_master_enable == InterruptEnableFlag::ShouldEnable
+                    && self.opcode != Opcode::Ei
+                {
+                    self.interrupt_master_enable = InterruptEnableFlag::Enabled;
+                }
             }
+        }
+    }
+
+    fn decode(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            0 => {
+                self.read_opcode(bus);
+            }
+            1 => {
+                self.phase = Phase::Execute;
+            }
+            _ => (),
         }
     }
 
@@ -133,6 +160,51 @@ impl SharpSM83 {
         }
     }
 
+    fn check_interrupts(&mut self) -> bool {
+        let i_enable = self.registers.interrupt_enable & 0b00011111;
+        let i_flag = self.registers.interrupt_flags & 0b00011111;
+        self.interrupt_master_enable == InterruptEnableFlag::Enabled && i_enable & i_flag != 0
+    }
+
+    fn handle_interrupt(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.registers.program_counter = self.registers.program_counter.wrapping_sub(1);
+            }
+            4 => {
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+            }
+            8 => {
+                bus.address = self.registers.stack_pointer;
+                bus.data = self.registers.program_counter.to_be_bytes()[0];
+                bus.mode = ReadWriteMode::Write;
+
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+            }
+            12 => {
+                bus.address = self.registers.stack_pointer;
+                bus.data = self.registers.program_counter.to_be_bytes()[1];
+                bus.mode = ReadWriteMode::Write;
+
+                let mut mask = 1;
+                let mut shift = 0;
+                while self.registers.interrupt_enable & mask == 0 {
+                    mask <<= 1;
+                    shift += 1;
+                }
+
+                self.registers.interrupt_flags &= !mask;
+                self.interrupt_master_enable = InterruptEnableFlag::Disabled;
+
+                self.registers.program_counter = 0x0040 + shift * 8;
+            }
+            18 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn increment_program_counter(&mut self) {
         self.registers.program_counter = self.registers.program_counter.wrapping_add(1);
     }
@@ -142,7 +214,8 @@ impl SharpSM83 {
             Opcode::Nop => self.no_op(),
             Opcode::Prefix => self.prefix(),
 
-            Opcode::Di => self.no_op(),
+            Opcode::Ei => self.ei(),
+            Opcode::Di => self.di(),
 
             Opcode::LdReg8Imm8(dest) => self.ld_r_n8(dest, bus),
             Opcode::LdReg8Reg8 {
@@ -266,6 +339,16 @@ impl SharpSM83 {
             self.decode_as_prefix_opcode = true;
             self.phase = Phase::Fetch;
         }
+    }
+
+    fn ei(&mut self) {
+        self.interrupt_master_enable = InterruptEnableFlag::ShouldEnable;
+        self.no_op();
+    }
+
+    fn di(&mut self) {
+        self.interrupt_master_enable = InterruptEnableFlag::Disabled;
+        self.no_op();
     }
 
     fn ld_r_n8(&mut self, destination: Register8Bit, bus: &mut Bus) {
@@ -1714,6 +1797,225 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
+    const EI: u8 = 0xFB;
+    const DI: u8 = 0xF3;
+    const NOP: u8 = 0x00;
+
+    #[rstest]
+    #[case(0b00000001, 0b00000001, 0x0041)]
+    #[case(0b00000010, 0b00000010, 0x0049)]
+    #[case(0b00000100, 0b00000100, 0x0051)]
+    #[case(0b00001000, 0b00001000, 0x0059)]
+    #[case(0b00010000, 0b00010000, 0x0061)]
+    fn should_handle_interrupts_one_instruction_after_interrupts_are_enabled(
+        #[case] flag: u8,
+        #[case] enabled: u8,
+        #[case] expected_pc: u16,
+    ) {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.interrupt_enable = enabled;
+        cpu.registers.interrupt_flags = flag;
+        cpu.registers.program_counter = 0x0100;
+
+        // Execute EI, pick up nop
+        bus.data = EI;
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0101);
+
+        // Execute nop
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP
+        }
+
+        // Handle interrupt
+        for _ in 0..4 * 5 {
+            cpu.tick(&mut bus);
+        }
+
+        assert_eq!(cpu.registers.program_counter, expected_pc);
+        assert_eq!(cpu.registers.interrupt_enable, enabled);
+        assert_eq!(cpu.registers.interrupt_flags, 0b00000000);
+    }
+
+    #[test]
+    fn should_disable_interrupts_after_handling_an_interrupt() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x0101;
+
+        // Execute EI, pick up nop
+        bus.data = EI;
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+
+        cpu.registers.interrupt_enable = 0b00000100;
+        cpu.registers.interrupt_flags = 0b00000100;
+
+        // Handle interrupt, execute some nops
+        for _ in 0..20 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        cpu.registers.program_counter = 0x101;
+
+        // Execute another nop
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+        assert_eq!(cpu.registers.interrupt_flags, 0b00000000);
+        assert_eq!(cpu.registers.interrupt_enable, 0b00000100);
+    }
+
+    #[rstest]
+    fn should_ignore_top_3_bits_of_interrupt_registers(
+        #[values(
+            0b00100000, 0b01000000, 0b01100000, 0b10000000, 0b10100000, 0b11000000, 0b11100000
+        )]
+        requested_interrupt: u8,
+    ) {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x0101;
+
+        // Execute EI, pick up NOP
+        bus.data = EI;
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+
+        // Execute NOP, pick up NOP
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = DI;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0103);
+
+        cpu.registers.interrupt_enable = requested_interrupt;
+        cpu.registers.interrupt_flags = requested_interrupt;
+
+        // Execute NOP, do not handle interrupts
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0104);
+        assert_eq!(cpu.registers.interrupt_flags, requested_interrupt);
+        assert_eq!(cpu.registers.interrupt_enable, requested_interrupt);
+    }
+
+    #[test]
+    fn should_not_handle_interrupts_after_interrupts_are_disabled() {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x0101;
+
+        // Execute EI, pick up NOP
+        bus.data = EI;
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+
+        // Execute NOP, pick up DI
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = DI;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0103);
+
+        // Execute DI, pick up NOP
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0104);
+
+        cpu.registers.interrupt_enable = 0b00000100;
+        cpu.registers.interrupt_flags = 0b00000100;
+
+        // Execute NOP, do not handle interrupts
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0105);
+        assert_eq!(cpu.registers.interrupt_flags, 0b00000100);
+        assert_eq!(cpu.registers.interrupt_enable, 0b00000100);
+    }
+
+    #[rstest]
+    #[case(0b00000101, 0b00000101, 0b00000100)]
+    #[case(0b00010100, 0b00010100, 0b00010000)]
+    #[case(0b00011111, 0b00010000, 0b00001111)]
+    #[case(0b00010100, 0b00010000, 0b00000100)]
+    #[case(0b00000000, 0b00011111, 0b00000000)]
+    fn should_prioritize_enabled_low_bit_interrupts(
+        #[case] requested: u8,
+        #[case] enabled: u8,
+        #[case] expected: u8,
+    ) {
+        let mut cpu = SharpSM83::new();
+        let mut bus = Bus::new();
+
+        cpu.registers.program_counter = 0x0101;
+
+        // Execute EI, pick up nop
+        bus.data = EI;
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+
+        cpu.registers.interrupt_enable = enabled;
+        cpu.registers.interrupt_flags = requested;
+
+        // Handle interrupt, execute some nops
+        for _ in 0..20 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        cpu.registers.program_counter = 0x101;
+
+        // Execute another nop
+        for _ in 0..4 {
+            cpu.tick(&mut bus);
+            bus.data = NOP;
+        }
+
+        assert_eq!(cpu.registers.program_counter, 0x0102);
+        assert_eq!(cpu.registers.interrupt_flags, expected);
+        assert_eq!(cpu.registers.interrupt_enable, enabled);
+    }
+
     #[derive(Deserialize)]
     struct JsonTest {
         pub name: String,
@@ -2125,6 +2427,7 @@ mod tests {
                 h: test.initial_state.h,
                 l: test.initial_state.l,
                 interrupt_enable: 0u8,
+                interrupt_flags: 0u8,
                 program_counter: test.initial_state.pc,
                 stack_pointer: test.initial_state.sp,
             };
@@ -2204,6 +2507,7 @@ mod tests {
                 h: test.final_state.h,
                 l: test.final_state.l,
                 interrupt_enable: 0u8,
+                interrupt_flags: 0u8,
                 program_counter: test.final_state.pc,
                 stack_pointer: test.final_state.sp,
             };
