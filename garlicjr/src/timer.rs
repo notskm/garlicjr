@@ -2,14 +2,18 @@
 pub struct Timer {
     pub registers: Registers,
     tima_counter: u16,
+    request_interrupt: bool,
 }
 
 impl Timer {
     pub fn tick(&mut self) {
+        self.request_interrupt = false;
+
         if self.should_increment_tima() {
             let (new_tima, overflow) = self.registers.tima.overflowing_add(1);
 
             self.registers.tima = if overflow {
+                self.request_interrupt = true;
                 self.registers.tma
             } else {
                 new_tima
@@ -20,6 +24,10 @@ impl Timer {
         if self.tima_counter >= self.increment_frequency() {
             self.tima_counter = 0;
         }
+    }
+
+    pub fn interrupt_requested(&self) -> bool {
+        self.request_interrupt
     }
 
     fn should_increment_tima(&self) -> bool {
@@ -165,5 +173,30 @@ mod tests {
         }
 
         assert_eq!(timer.registers.tima, timer.registers.tma);
+    }
+
+    #[rstest]
+    fn should_not_request_interrupt_only_when_tima_does_not_overflow(
+        #[values(0x00, 0xFF, 0xFE, 0x42)] tma: u8,
+    ) {
+        let mut timer = Timer::default();
+        timer.registers.tma = tma;
+        timer.registers.tac = 0b00000101;
+        assert!(!timer.interrupt_requested());
+
+        for _ in 0..5 {
+            while timer.registers.tima < 0xFF {
+                timer.tick();
+                assert!(!timer.interrupt_requested());
+            }
+
+            for _ in 0..15 {
+                timer.tick();
+                assert!(!timer.interrupt_requested());
+            }
+
+            timer.tick();
+            assert!(timer.interrupt_requested());
+        }
     }
 }
