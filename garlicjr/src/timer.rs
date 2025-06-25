@@ -4,7 +4,7 @@ pub struct Timer {
 }
 
 pub struct Registers {
-    tac: u8,
+    pub tac: u8,
     pub tima: u8,
 }
 
