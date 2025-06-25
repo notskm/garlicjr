@@ -1,6 +1,35 @@
 #[derive(Default)]
 pub struct Timer {
     pub registers: Registers,
+    current_tick: u16,
+}
+
+impl Timer {
+    pub fn tick(&mut self) {
+        if self.should_increment_tima() {
+            self.registers.tima += 1;
+            self.current_tick = 0;
+        } else {
+            self.current_tick += 1;
+        }
+    }
+
+    fn should_increment_tima(&self) -> bool {
+        self.registers.tac & 0b00000100 > 0 && self.current_tick == self.increment_frequency() - 1
+    }
+
+    fn increment_frequency(&self) -> u16 {
+        const M_CYCLE_LENGTH: u16 = 4;
+
+        M_CYCLE_LENGTH
+            * match self.registers.tac & 0b00000011 {
+                0b00000000 => 256,
+                0b00000001 => 4,
+                0b00000010 => 16,
+                0b00000011 => 64,
+                _ => u16::MAX,
+            }
+    }
 }
 
 pub struct Registers {
@@ -63,5 +92,33 @@ mod tests {
         let mut timer = Timer::default();
         timer.registers.set_tac(tac);
         assert_eq!(timer.registers.get_tac(), expected);
+    }
+
+    #[rstest]
+    #[case(0b00000100, 256)]
+    #[case(0b00000101, 4)]
+    #[case(0b00000110, 16)]
+    #[case(0b00000111, 64)]
+    fn should_increment_tima_when_tac_bit_2_is_on(
+        #[case] tac: u8,
+        #[case] increment_frequency_in_m_cycles: u16,
+    ) {
+        let mut timer = Timer::default();
+        timer.registers.set_tac(tac);
+        timer.registers.tma = 0;
+
+        let t_cycles = increment_frequency_in_m_cycles * 4;
+
+        for expected in 1..=10 {
+            // Skip a cycle to detect the exact moment tima increments
+            for _ in 0..t_cycles - 1 {
+                timer.tick();
+                assert_eq!(timer.registers.tima, expected - 1);
+            }
+
+            // Detect the increment
+            timer.tick();
+            assert_eq!(timer.registers.tima, expected);
+        }
     }
 }
