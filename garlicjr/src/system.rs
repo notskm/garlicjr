@@ -17,10 +17,11 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::{Bus, Cartridge, DmgBootrom, RandomAccessMemory, ReadWriteMode, SharpSM83};
+use crate::{Bus, Cartridge, DmgBootrom, RandomAccessMemory, ReadWriteMode, SharpSM83, Timer};
 
 pub struct System {
     pub cpu: SharpSM83,
+    pub timer: Timer,
     pub bus: Bus,
     pub bootrom: Option<DmgBootrom>,
     pub cartridge: Option<Cartridge>,
@@ -34,6 +35,7 @@ impl System {
     pub fn new() -> Self {
         Self {
             cpu: SharpSM83::new(),
+            timer: Timer::default(),
             bus: Bus::new(),
             bootrom: None,
             cartridge: None,
@@ -47,6 +49,10 @@ impl System {
     pub fn run_cycle(&mut self) {
         for _ in 0..4 {
             self.cpu.tick(&mut self.bus);
+            self.timer.tick();
+            if self.timer.interrupt_requested() {
+                self.write(0xFF0F, 0b00000100);
+            }
         }
 
         match self.bus.mode {
@@ -74,8 +80,13 @@ impl System {
                 .unwrap_or(0xFF),
             0xC000..=0xCFFF => self.work_ram_1.read(address - 0xC000).unwrap_or(0xFF),
             0xD000..=0xDFFF => self.work_ram_2.read(address - 0xD000).unwrap_or(0xFF),
+            0xFF05 => self.timer.registers.tima,
+            0xFF06 => self.timer.registers.tma,
+            0xFF07 => self.timer.registers.get_tac(),
+            0xFF0F => self.cpu.registers.interrupt_flags,
             0xFF50 => self.bootrom_enable_register,
             0xFF80..=0xFFFE => self.high_ram.read(address - 0xFF80).unwrap_or(0xFF),
+            0xFFFF => self.cpu.registers.interrupt_enable,
             _ => 0xFFu8,
         }
     }
@@ -84,8 +95,13 @@ impl System {
         match address {
             0xC000..=0xCFFF => self.work_ram_1.write(address - 0xC000, data),
             0xD000..=0xDFFF => self.work_ram_2.write(address - 0xD000, data),
+            0xFF05 => self.timer.registers.tima = data,
+            0xFF06 => self.timer.registers.tma = data,
+            0xFF07 => self.timer.registers.set_tac(data),
+            0xFF0F => self.cpu.registers.interrupt_flags = data & 0b00011111,
             0xFF50 => self.bootrom_enable_register = data,
             0xFF80..=0xFFFE => self.high_ram.write(address - 0xFF80, data),
+            0xFFFF => self.cpu.registers.interrupt_enable = data & 0b00011111,
             _ => (),
         }
     }
