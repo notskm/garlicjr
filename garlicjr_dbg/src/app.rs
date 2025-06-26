@@ -297,7 +297,9 @@ impl eframe::App for GarlicJrApp {
             memory_table("Memory Table", ctx, ui, &mut self.dmg_system);
         });
 
-        ctx.request_repaint();
+        if self.running {
+            ctx.request_repaint();
+        }
     }
 }
 
