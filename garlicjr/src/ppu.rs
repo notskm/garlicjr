@@ -83,6 +83,84 @@ impl PPU {
     pub fn write_vram(&mut self, address: u16, data: u8) {
         self.vram.write(address, data);
     }
+
+    pub fn dump_tile_data(&self) -> ([usize; 2], Vec<u8>) {
+        let mut buffer = vec![0u8; 16 * 8 * 24 * 8 * 4];
+
+        let mut last_x = 0;
+        let mut last_y = 0;
+        for tile_index in 0..16 * 24 {
+            let tile = self.dump_tile(tile_index);
+
+            for (y, row) in tile.iter().enumerate() {
+                for (x, component) in row.iter().enumerate() {
+                    let x = last_x + x;
+                    let y = last_y + y;
+                    buffer[y * 16 * 8 * 4 + x] = *component;
+                }
+            }
+
+            last_x += 8 * 4;
+            last_x %= 16 * 8 * 4;
+            if last_x == 0 {
+                last_y += 8;
+            }
+        }
+
+        ([16 * 8, 24 * 8], buffer)
+    }
+
+    fn dump_tile(&self, index: u16) -> Vec<[u8; 32]> {
+        let mut tile = vec![];
+        let start = index * 8 * 2;
+        let end = start + 8 * 2;
+        for idx in (start..end).step_by(2) {
+            let lsb = self.vram.read(idx).unwrap_or(0);
+            let msb = self.vram.read(idx + 1).unwrap_or(0);
+            let pixels = to_pixels(lsb, msb);
+            tile.push(pixels);
+        }
+
+        tile
+    }
+}
+
+fn to_pixels(lsb: u8, msb: u8) -> [u8; 32] {
+    let mut pixels = [0u8; 32];
+
+    let pixel_values = raw_pixel_values(lsb, msb);
+    pixels[0..4].copy_from_slice(&map_to_color(pixel_values[0]));
+    pixels[4..8].copy_from_slice(&map_to_color(pixel_values[1]));
+    pixels[8..12].copy_from_slice(&map_to_color(pixel_values[2]));
+    pixels[12..16].copy_from_slice(&map_to_color(pixel_values[3]));
+    pixels[16..20].copy_from_slice(&map_to_color(pixel_values[4]));
+    pixels[20..24].copy_from_slice(&map_to_color(pixel_values[5]));
+    pixels[24..28].copy_from_slice(&map_to_color(pixel_values[6]));
+    pixels[28..32].copy_from_slice(&map_to_color(pixel_values[7]));
+
+    pixels
+}
+
+fn raw_pixel_values(lsb: u8, msb: u8) -> [u8; 8] {
+    let p0 = ((msb & 0b10000000) >> 6) | ((lsb & 0b10000000) >> 7);
+    let p1 = ((msb & 0b01000000) >> 5) | ((lsb & 0b01000000) >> 6);
+    let p2 = ((msb & 0b00100000) >> 4) | ((lsb & 0b00100000) >> 5);
+    let p3 = ((msb & 0b00010000) >> 3) | ((lsb & 0b00010000) >> 4);
+    let p4 = ((msb & 0b00001000) >> 2) | ((lsb & 0b00001000) >> 3);
+    let p5 = ((msb & 0b00000100) >> 1) | ((lsb & 0b00000100) >> 2);
+    let p6 = (msb & 0b00000010) | ((lsb & 0b00000010) >> 1);
+    let p7 = ((msb & 0b00000001) << 1) | (lsb & 0b00000001);
+    [p0, p1, p2, p3, p4, p5, p6, p7]
+}
+
+fn map_to_color(pixel_value: u8) -> [u8; 4] {
+    match pixel_value {
+        0 => [160, 160, 160, 255],
+        1 => [220, 220, 220, 255],
+        2 => [96, 96, 96, 255],
+        3 => [0, 0, 0, 255],
+        _ => [255, 255, 255, 255],
+    }
 }
 
 pub struct PpuRegisters {
