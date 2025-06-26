@@ -30,14 +30,17 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct GarlicJrApp {
-    #[serde(skip)]
-    bootrom_channel: (Sender<DmgBootrom>, Receiver<DmgBootrom>),
-
     license_window_open: bool,
     about_window_open: bool,
 
     #[serde(skip)]
-    disclaimer_window_open: bool,
+    bootrom_channel: (Sender<DmgBootrom>, Receiver<DmgBootrom>),
+
+    #[serde(skip)]
+    cartridge_channel: (Sender<Cartridge>, Receiver<Cartridge>),
+
+    #[serde(skip)]
+    features_window_open: bool,
 
     #[serde(skip)]
     running: bool,
@@ -63,10 +66,11 @@ impl Default for GarlicJrApp {
         let color = egui::Color32::GRAY;
 
         Self {
-            bootrom_channel: channel(),
             license_window_open: false,
             about_window_open: false,
-            disclaimer_window_open: true,
+            bootrom_channel: channel(),
+            cartridge_channel: channel(),
+            features_window_open: true,
             running: false,
             dmg_system: System::new(),
             screen_texture: None,
@@ -90,11 +94,6 @@ impl GarlicJrApp {
             None => Self::default(),
         }
     }
-
-    fn change_bootrom_and_reset(&mut self, bootrom: DmgBootrom) {
-        self.dmg_system = System::new();
-        self.dmg_system.bootrom = Some(bootrom);
-    }
 }
 
 impl eframe::App for GarlicJrApp {
@@ -104,7 +103,13 @@ impl eframe::App for GarlicJrApp {
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Ok(bootrom) = self.bootrom_channel.1.try_recv() {
-            self.change_bootrom_and_reset(bootrom);
+            self.dmg_system.bootrom = Some(bootrom);
+        }
+        if let Ok(cartridge) = self.cartridge_channel.1.try_recv() {
+            let mut new_system = System::new();
+            new_system.cartridge = Some(cartridge);
+            new_system.bootrom = self.dmg_system.bootrom.take();
+            self.dmg_system = new_system;
         }
 
         if self.running {
@@ -117,7 +122,35 @@ impl eframe::App for GarlicJrApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("Load ROM...").clicked() {
+                        ui.close_menu();
+
+                        let task = AsyncFileDialog::new().pick_file();
+
+                        let ctx = ui.ctx().clone();
+                        let sender = self.cartridge_channel.0.clone();
+
+                        execute(async move {
+                            let file = task.await;
+
+                            if let Some(file) = file {
+                                let contents = file.read().await;
+                                let cartridge = Cartridge::from_reader(contents.as_slice());
+
+                                if let Ok(cartridge) = cartridge {
+                                    let _ = sender.send(cartridge);
+                                } else {
+                                    println!("Error");
+                                }
+
+                                ctx.request_repaint();
+                            }
+                        });
+                    }
+
                     if ui.button("Load bootrom...").clicked() {
+                        ui.close_menu();
+
                         let task = AsyncFileDialog::new().pick_file();
 
                         let ctx = ui.ctx().clone();
@@ -199,10 +232,31 @@ impl eframe::App for GarlicJrApp {
             });
 
         egui::Window::new("Features")
-            .open(&mut self.disclaimer_window_open)
+            .open(&mut self.features_window_open)
             .show(ctx, |ui| {
-                let disclaimer = "- Load boot ROM: ✔\n- Load ROMs: ❌\n- Display: ❌\n- Audio: ❌";
-                ui.label(disclaimer);
+                let mut always_true = true;
+                let mut always_false = false;
+                ui.checkbox(&mut always_false, "All opcodes");
+                ui.checkbox(&mut always_false, "Display");
+                ui.checkbox(&mut always_false, "Audio");
+                ui.checkbox(&mut always_true, "Load boot ROM");
+                let rom_checkbox =
+                    egui::Checkbox::new(&mut always_false, "Load ROMs").indeterminate(true);
+                ui.add(rom_checkbox);
+                ui.indent("feature_checkbox_indent", |ui| {
+                    ui.checkbox(&mut always_true, "No MBC");
+                    ui.checkbox(&mut always_false, "MBC1");
+                    ui.checkbox(&mut always_false, "MBC2");
+                    ui.checkbox(&mut always_false, "MBC3");
+                    ui.checkbox(&mut always_false, "MBC5");
+                    ui.checkbox(&mut always_false, "MBC6");
+                    ui.checkbox(&mut always_false, "MBC7");
+                    ui.checkbox(&mut always_false, "MMM01");
+                    ui.checkbox(&mut always_false, "M161");
+                    ui.checkbox(&mut always_false, "HuC1");
+                    ui.checkbox(&mut always_false, "HuC-3");
+                    ui.checkbox(&mut always_false, "Other MBCs");
+                })
             });
 
         egui::Window::new("Screen").show(ctx, |ui| {
