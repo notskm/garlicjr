@@ -43,13 +43,7 @@ pub struct GarlicJrApp {
     running: bool,
 
     #[serde(skip)]
-    cpu: SharpSM83,
-
-    #[serde(skip)]
-    ram: Vec<u8>,
-
-    #[serde(skip)]
-    bus: Bus,
+    dmg_system: System,
 
     #[serde(skip)]
     framebuffer: egui::ColorImage,
@@ -68,43 +62,13 @@ impl Default for GarlicJrApp {
     fn default() -> Self {
         let color = egui::Color32::GRAY;
 
-        // Provide a default program for now
-        let mut ram = vec![0; 65536];
-        ram[0] = 0x06;
-        ram[1] = 0x42;
-        ram[2] = 0x16;
-        ram[3] = 0x20;
-        ram[4] = 0x78;
-        ram[5] = 0x42;
-        ram[6] = 0x57;
-        ram[7] = 0x3E;
-        ram[8] = 0x00;
-
-        // Add a tileset to VRAM
-        const GARLICJR_TILES: [u8; 128] = [
-            0x00, 0x00, 0x1C, 0x1C, 0x22, 0x22, 0x20, 0x20, 0x2E, 0x2E, 0x22, 0x22, 0x1C, 0x1C,
-            0x00, 0x00, 0x18, 0x18, 0x24, 0x24, 0x24, 0x24, 0x3C, 0x3C, 0x42, 0x42, 0x42, 0x42,
-            0x42, 0x42, 0x00, 0x00, 0x1C, 0x1C, 0x22, 0x22, 0x42, 0x42, 0x44, 0x44, 0x78, 0x78,
-            0x50, 0x50, 0x48, 0x48, 0x46, 0x46, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
-            0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x3C, 0x3C, 0x6C, 0x6C, 0x10, 0x10, 0x10, 0x10,
-            0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x6C, 0x6C, 0x3C, 0x3C, 0x42, 0x42,
-            0x82, 0x82, 0x80, 0x80, 0x80, 0x80, 0x82, 0x82, 0x42, 0x42, 0x3C, 0x3C, 0x20, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x22, 0x22, 0x22, 0x1C, 0x1C,
-            0x1C, 0x1C, 0x22, 0x22, 0x42, 0x42, 0x44, 0x44, 0x78, 0x78, 0x50, 0x50, 0x48, 0x48,
-            0x46, 0x46,
-        ];
-
-        ram.splice(0x8000..0x8000 + GARLICJR_TILES.len(), GARLICJR_TILES);
-
         Self {
             bootrom_channel: channel(),
             license_window_open: false,
             about_window_open: false,
             disclaimer_window_open: true,
             running: false,
-            cpu: SharpSM83::new(),
-            ram,
-            bus: Bus::new(),
+            dmg_system: System::new(),
             screen_texture: None,
             framebuffer: egui::ColorImage {
                 pixels: [color; 160 * 144].to_vec(),
@@ -128,10 +92,8 @@ impl GarlicJrApp {
     }
 
     fn change_bootrom_and_reset(&mut self, bootrom: DmgBootrom) {
-        let data = bootrom.data();
-        self.ram.fill(0);
-        self.ram.splice(0..bootrom.data().len(), *data);
-        self.cpu = SharpSM83::new();
+        self.dmg_system = System::new();
+        self.dmg_system.bootrom = Some(bootrom);
     }
 }
 
@@ -148,7 +110,7 @@ impl eframe::App for GarlicJrApp {
         if self.running {
             let cycles = (1_000_000f32 * frame.info().cpu_usage.unwrap_or(0f32)) as u64;
             for _ in 0..cycles {
-                run_gameboy_cycle(&mut self.cpu, &mut self.ram, &mut self.bus);
+                self.dmg_system.run_cycle();
             }
         }
 
@@ -266,7 +228,7 @@ impl eframe::App for GarlicJrApp {
                     )
                 });
 
-            tile_data(&self.ram, &mut self.tile_data_buffer);
+            tile_data(&self.dmg_system, &mut self.tile_data_buffer);
             texture.set(self.tile_data_buffer.clone(), egui::TextureOptions::NEAREST);
             ui.image((texture.id(), texture.size_vec2()));
         });
@@ -274,18 +236,11 @@ impl eframe::App for GarlicJrApp {
         egui::Window::new("CPU")
             .resizable([true, true])
             .show(ctx, |ui| {
-                cpu_gui(
-                    ui,
-                    &mut self.cpu,
-                    &mut self.ram,
-                    &mut self.bus,
-                    &mut self.running,
-                    run_gameboy_cycle,
-                );
+                cpu_gui(ui, &mut self.dmg_system, &mut self.running);
             });
 
-        egui::Window::new("RAM").show(ctx, |ui| {
-            ram_table("RAM Table", ctx, ui, &mut self.ram, self.bus.address);
+        egui::Window::new("Memory").show(ctx, |ui| {
+            memory_table("Memory Table", ctx, ui, &mut self.dmg_system);
         });
 
         ctx.request_repaint();
@@ -304,17 +259,6 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
-}
-
-fn run_gameboy_cycle(cpu: &mut SharpSM83, ram: &mut [u8], bus: &mut Bus) {
-    for _ in 0..4 {
-        cpu.tick(bus);
-    }
-
-    match bus.mode {
-        ReadWriteMode::Write => ram[bus.address as usize] = bus.data,
-        ReadWriteMode::Read => bus.data = ram[bus.address as usize],
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]

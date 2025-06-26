@@ -18,14 +18,15 @@
 */
 
 use egui::{Color32, ColorImage};
+use garlicjr::System;
 
 const TILE_DATA_BEGIN: u16 = 0x8000;
 
-pub fn tile_data(ram: &[u8], buffer: &mut ColorImage) {
+pub fn tile_data(dmg: &System, buffer: &mut ColorImage) {
     let mut last_x = 0;
     let mut last_y = 0;
     for tile_index in 0..16 * 24 {
-        let tile = get_tile(ram, tile_index);
+        let tile = get_tile(dmg, tile_index);
 
         for (y, row) in tile.iter().enumerate() {
             for (x, pixel) in row.iter().enumerate() {
@@ -43,13 +44,13 @@ pub fn tile_data(ram: &[u8], buffer: &mut ColorImage) {
     }
 }
 
-fn get_tile(ram: &[u8], index: u16) -> Vec<[Color32; 8]> {
+fn get_tile(dmg: &System, index: u16) -> Vec<[Color32; 8]> {
     let mut tile = vec![];
-    let start = (index * 8 * 2 + TILE_DATA_BEGIN) as usize;
+    let start = index * 8 * 2 + TILE_DATA_BEGIN;
     let end = start + 8 * 2;
     for idx in (start..end).step_by(2) {
-        let lsb = ram[idx];
-        let msb = ram[idx + 1];
+        let lsb = dmg.read(idx);
+        let msb = dmg.read(idx + 1);
         let pixels = to_pixels(lsb, msb);
         tile.push(pixels);
     }

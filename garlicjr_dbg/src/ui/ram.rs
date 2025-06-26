@@ -18,13 +18,13 @@
 */
 
 use egui::RichText;
+use garlicjr::System;
 
-pub fn ram_table(
+pub fn memory_table(
     id_salt: impl std::hash::Hash,
     ctx: &egui::Context,
     ui: &mut egui::Ui,
-    ram: &mut [u8],
-    program_counter: u16,
+    dmg: &mut System,
 ) {
     let font_size = ctx
         .style()
@@ -59,7 +59,7 @@ pub fn ram_table(
             }
         })
         .body(|body| {
-            body.rows(font_size, ram.len() / ROW_LENGTH, |mut row| {
+            body.rows(font_size, u16::MAX as usize / ROW_LENGTH, |mut row| {
                 let row_index = row.index();
 
                 // Address column
@@ -73,13 +73,13 @@ pub fn ram_table(
                 // Data columns
                 for col_index in 0..ROW_LENGTH {
                     row.col(|ui| {
-                        let ram_offset = row_index * ROW_LENGTH + col_index;
-                        let ram_value = ram[ram_offset];
+                        let memory_offset = row_index * ROW_LENGTH + col_index;
+                        let memory_value = dmg.read(memory_offset as u16);
 
-                        let ram_value_text = format!("{:02X}", ram_value);
-                        let mut rich_text = egui::RichText::new(ram_value_text).monospace();
+                        let memory_value_text = format!("{:02X}", memory_value);
+                        let mut rich_text = egui::RichText::new(memory_value_text).monospace();
 
-                        if ram_offset == program_counter as usize {
+                        if memory_offset == dmg.cpu.registers.program_counter as usize {
                             rich_text = rich_text
                                 .color(egui::Color32::BLACK)
                                 .background_color(egui::Color32::WHITE);

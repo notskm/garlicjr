@@ -18,50 +18,43 @@
 */
 
 use egui::Grid;
-use garlicjr::{Bus, SharpSM83};
+use garlicjr::System;
 
-pub fn cpu_gui(
-    ui: &mut egui::Ui,
-    cpu: &mut SharpSM83,
-    ram: &mut [u8],
-    bus: &mut Bus,
-    running: &mut bool,
-    mut tick_function: impl FnMut(&mut SharpSM83, &mut [u8], &mut Bus),
-) {
+pub fn cpu_gui(ui: &mut egui::Ui, dmg: &mut System, running: &mut bool) {
     Grid::new("CPU Register Grid")
         .num_columns(2)
         .show(ui, |ui| {
             ui.label("AF");
             ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut cpu.registers.a).range(0..=255));
-                ui.add(egui::DragValue::new(&mut cpu.registers.f).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.a).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.f).range(0..=255));
             });
             ui.end_row();
 
             ui.label("BC");
             ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut cpu.registers.b).range(0..=255));
-                ui.add(egui::DragValue::new(&mut cpu.registers.c).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.b).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.c).range(0..=255));
             });
             ui.end_row();
 
             ui.label("DE");
             ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut cpu.registers.d).range(0..=255));
-                ui.add(egui::DragValue::new(&mut cpu.registers.e).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.d).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.e).range(0..=255));
             });
             ui.end_row();
 
             ui.label("HL");
             ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut cpu.registers.h).range(0..=255));
-                ui.add(egui::DragValue::new(&mut cpu.registers.l).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.h).range(0..=255));
+                ui.add(egui::DragValue::new(&mut dmg.cpu.registers.l).range(0..=255));
             });
             ui.end_row();
 
             ui.label("PC");
             ui.add(
-                egui::DragValue::new(&mut cpu.registers.program_counter)
+                egui::DragValue::new(&mut dmg.cpu.registers.program_counter)
                     .range(0..=u16::MAX)
                     .hexadecimal(4, true, true),
             );
@@ -69,14 +62,14 @@ pub fn cpu_gui(
 
             ui.label("SP");
             ui.add(
-                egui::DragValue::new(&mut cpu.registers.stack_pointer)
+                egui::DragValue::new(&mut dmg.cpu.registers.stack_pointer)
                     .range(0..=u16::MAX)
                     .hexadecimal(4, true, true),
             );
             ui.end_row();
 
             if ui.button("Step").clicked() {
-                tick_function(cpu, ram, bus);
+                dmg.run_cycle();
             }
 
             ui.checkbox(running, "Run");
