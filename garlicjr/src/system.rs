@@ -17,10 +17,11 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-use crate::{Bus, Cartridge, DmgBootrom, RandomAccessMemory, ReadWriteMode, SharpSM83, Timer};
+use crate::{Bus, Cartridge, DmgBootrom, PPU, RandomAccessMemory, ReadWriteMode, SharpSM83, Timer};
 
 pub struct System {
     pub cpu: SharpSM83,
+    pub ppu: PPU,
     pub timer: Timer,
     pub bus: Bus,
     pub bootrom: Option<DmgBootrom>,
@@ -35,6 +36,7 @@ impl System {
     pub fn new() -> Self {
         Self {
             cpu: SharpSM83::new(),
+            ppu: PPU::new(),
             timer: Timer::default(),
             bus: Bus::new(),
             bootrom: None,
@@ -49,6 +51,7 @@ impl System {
     pub fn run_cycle(&mut self) {
         for _ in 0..4 {
             self.cpu.tick(&mut self.bus);
+            self.ppu.tick();
             self.timer.tick();
             if self.timer.interrupt_requested() {
                 self.write(0xFF0F, 0b00000100);
@@ -73,17 +76,26 @@ impl System {
                 .as_ref()
                 .map(|cart| cart.read(address).unwrap_or(0xFF))
                 .unwrap_or(0xFF),
-            0x0100..=0x7FFF if !self.bootrom_enabled() => self
+            0x0100..=0x7FFF => self
                 .cartridge
                 .as_ref()
                 .map(|cart| cart.read(address).unwrap_or(0xFF))
                 .unwrap_or(0xFF),
+            0x8000..=0x9FFF => self.ppu.read_vram(address - 0x8000),
             0xC000..=0xCFFF => self.work_ram_1.read(address - 0xC000).unwrap_or(0xFF),
             0xD000..=0xDFFF => self.work_ram_2.read(address - 0xD000).unwrap_or(0xFF),
             0xFF05 => self.timer.registers.tima,
             0xFF06 => self.timer.registers.tma,
             0xFF07 => self.timer.registers.get_tac(),
             0xFF0F => self.cpu.registers.interrupt_flags,
+            0xFF40 => self.ppu.registers.lcdc,
+            0xFF41 => self.ppu.registers.get_stat(),
+            0xFF42 => self.ppu.registers.scy,
+            0xFF43 => self.ppu.registers.scx,
+            0xFF44 => self.ppu.registers.ly,
+            0xFF45 => self.ppu.registers.lyc,
+            0xFF4A => self.ppu.registers.wy,
+            0xFF4B => self.ppu.registers.wx,
             0xFF50 => self.bootrom_enable_register,
             0xFF80..=0xFFFE => self.high_ram.read(address - 0xFF80).unwrap_or(0xFF),
             0xFFFF => self.cpu.registers.interrupt_enable,
@@ -93,12 +105,20 @@ impl System {
 
     fn write(&mut self, address: u16, data: u8) {
         match address {
+            0x8000..=0x9FFF => self.ppu.write_vram(address - 0x8000, data),
             0xC000..=0xCFFF => self.work_ram_1.write(address - 0xC000, data),
             0xD000..=0xDFFF => self.work_ram_2.write(address - 0xD000, data),
             0xFF05 => self.timer.registers.tima = data,
             0xFF06 => self.timer.registers.tma = data,
             0xFF07 => self.timer.registers.set_tac(data),
             0xFF0F => self.cpu.registers.interrupt_flags = data & 0b00011111,
+            0xFF40 => self.ppu.registers.lcdc = data,
+            0xFF41 => self.ppu.registers.set_stat(data),
+            0xFF42 => self.ppu.registers.scy = data,
+            0xFF43 => self.ppu.registers.scx = data,
+            0xFF45 => self.ppu.registers.lyc = data,
+            0xFF4A => self.ppu.registers.wy = data,
+            0xFF4B => self.ppu.registers.wx = data,
             0xFF50 => self.bootrom_enable_register = data,
             0xFF80..=0xFFFE => self.high_ram.write(address - 0xFF80, data),
             0xFFFF => self.cpu.registers.interrupt_enable = data & 0b00011111,
