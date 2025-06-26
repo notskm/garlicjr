@@ -29,6 +29,7 @@ pub struct SharpSM83 {
     phase: Phase,
     decode_as_prefix_opcode: bool,
     temp_16_bit: u16,
+    mode: CpuMode,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -75,6 +76,12 @@ enum IncrementMode {
     None,
 }
 
+#[derive(PartialEq, Eq)]
+enum CpuMode {
+    Running,
+    Halted,
+}
+
 impl SharpSM83 {
     pub fn new() -> SharpSM83 {
         SharpSM83 {
@@ -92,6 +99,7 @@ impl SharpSM83 {
                 interrupt_enable: 0,
                 interrupt_flags: 0,
             },
+            mode: CpuMode::Running,
             interrupt_master_enable: InterruptEnableFlag::Disabled,
             current_tick: 0,
             opcode: Opcode::Nop,
@@ -102,6 +110,16 @@ impl SharpSM83 {
     }
 
     pub fn tick(&mut self, bus: &mut Bus) {
+        if self.should_wake_from_halt() {
+            self.mode = CpuMode::Running;
+        } else if self.mode == CpuMode::Halted {
+            self.current_tick += 1;
+            if self.current_tick >= 4 {
+                self.current_tick = 0;
+            }
+            return;
+        }
+
         match self.phase {
             Phase::Decode => {
                 if self.check_interrupts() {
@@ -120,6 +138,8 @@ impl SharpSM83 {
                 self.current_tick = self.current_tick.saturating_add(1);
             }
             Phase::Fetch => {
+                self.execute_opcode(bus);
+
                 self.write_program_counter(bus);
                 self.phase = Phase::Decode;
                 self.current_tick = 0;
@@ -160,10 +180,19 @@ impl SharpSM83 {
         }
     }
 
-    fn check_interrupts(&mut self) -> bool {
+    fn should_wake_from_halt(&self) -> bool {
+        self.current_tick == 0 && self.mode == CpuMode::Halted && self.are_interrupts_pending()
+    }
+
+    fn are_interrupts_pending(&self) -> bool {
         let i_enable = self.registers.interrupt_enable & 0b00011111;
         let i_flag = self.registers.interrupt_flags & 0b00011111;
-        self.interrupt_master_enable == InterruptEnableFlag::Enabled && i_enable & i_flag != 0
+        i_enable & i_flag != 0
+    }
+
+    fn check_interrupts(&mut self) -> bool {
+        self.interrupt_master_enable == InterruptEnableFlag::Enabled
+            && self.are_interrupts_pending()
     }
 
     fn handle_interrupt(&mut self, bus: &mut Bus) {
@@ -213,6 +242,8 @@ impl SharpSM83 {
         match self.opcode {
             Opcode::Nop => self.no_op(),
             Opcode::Prefix => self.prefix(),
+
+            Opcode::Halt => self.halt(),
 
             Opcode::Ei => self.ei(),
             Opcode::Di => self.di(),
@@ -338,6 +369,13 @@ impl SharpSM83 {
         if self.current_tick == 2 {
             self.decode_as_prefix_opcode = true;
             self.phase = Phase::Fetch;
+        }
+    }
+
+    fn halt(&mut self) {
+        self.no_op();
+        if self.current_tick == 3 {
+            self.mode = CpuMode::Halted;
         }
     }
 
@@ -909,18 +947,20 @@ impl SharpSM83 {
     }
 
     fn sub_a_r8(&mut self, register: Register8Bit) {
-        let data = self.read_from_register(register);
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
 
-        let (new_value, borrow, half_borrow) =
-            self.registers.a.overflowing_sub_with_half_carry(data);
+            let (new_value, borrow, half_borrow) =
+                self.registers.a.overflowing_sub_with_half_carry(data);
 
-        self.set_flag(Flags::Z, new_value == 0);
-        self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, half_borrow);
-        self.set_flag(Flags::C, borrow);
-        self.registers.a = new_value;
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, true);
+            self.set_flag(Flags::H, half_borrow);
+            self.set_flag(Flags::C, borrow);
+            self.registers.a = new_value;
 
-        self.phase = Phase::Fetch;
+            self.phase = Phase::Fetch;
+        }
     }
 
     fn add_a_hladdr(&mut self, bus: &mut Bus) {
@@ -1030,31 +1070,35 @@ impl SharpSM83 {
     }
 
     fn inc_r8(&mut self, register: Register8Bit) {
-        let data = self.read_from_register(register);
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
 
-        let (new_value, _, half_carry) = data.overflowing_add_with_half_carry(1);
+            let (new_value, _, half_carry) = data.overflowing_add_with_half_carry(1);
 
-        self.write_to_register(register, new_value);
+            self.write_to_register(register, new_value);
 
-        self.set_flag(Flags::Z, new_value == 0);
-        self.set_flag(Flags::N, false);
-        self.set_flag(Flags::H, half_carry);
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, half_carry);
 
-        self.phase = Phase::Fetch;
+            self.phase = Phase::Fetch;
+        }
     }
 
     fn dec_r8(&mut self, register: Register8Bit) {
-        let data = self.read_from_register(register);
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
 
-        let (new_value, _, half_borrow) = data.overflowing_sub_with_half_carry(1);
+            let (new_value, _, half_borrow) = data.overflowing_sub_with_half_carry(1);
 
-        self.write_to_register(register, new_value);
+            self.write_to_register(register, new_value);
 
-        self.set_flag(Flags::Z, new_value == 0);
-        self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, half_borrow);
+            self.set_flag(Flags::Z, new_value == 0);
+            self.set_flag(Flags::N, true);
+            self.set_flag(Flags::H, half_borrow);
 
-        self.phase = Phase::Fetch;
+            self.phase = Phase::Fetch;
+        }
     }
 
     fn inc_r16(&mut self, register: Register16Bit) {
@@ -1256,15 +1300,18 @@ impl SharpSM83 {
     }
 
     fn cp_a_r8(&mut self, register: Register8Bit) {
-        let data = self.read_from_register(register);
+        if self.current_tick == 2 {
+            let data = self.read_from_register(register);
 
-        let (result, borrow, half_borrow) = self.registers.a.overflowing_sub_with_half_carry(data);
+            let (result, borrow, half_borrow) =
+                self.registers.a.overflowing_sub_with_half_carry(data);
 
-        self.set_flag(Flags::Z, result == 0);
-        self.set_flag(Flags::N, true);
-        self.set_flag(Flags::H, half_borrow);
-        self.set_flag(Flags::C, borrow);
-        self.phase = Phase::Fetch;
+            self.set_flag(Flags::Z, result == 0);
+            self.set_flag(Flags::N, true);
+            self.set_flag(Flags::H, half_borrow);
+            self.set_flag(Flags::C, borrow);
+            self.phase = Phase::Fetch;
+        }
     }
 
     fn cp_a_imm8(&mut self, bus: &mut Bus) {
