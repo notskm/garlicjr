@@ -1404,6 +1404,7 @@ dependencies = [
  "serde",
  "wasm-bindgen-futures",
  "web-sys",
+ "web-time",
 ]
 
 [[package]]

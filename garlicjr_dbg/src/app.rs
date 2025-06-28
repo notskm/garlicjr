@@ -23,6 +23,7 @@ use crate::ui::*;
 use egui::TextureHandle;
 use garlicjr::*;
 use rfd::AsyncFileDialog;
+use web_time::Instant;
 
 const REPO_URL: Option<&str> = option_env!("GARLICJR_REPO_URL");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -59,6 +60,9 @@ pub struct GarlicJrApp {
 
     #[serde(skip)]
     tile_data_texture: Option<TextureHandle>,
+
+    #[serde(skip)]
+    frame_tracker: Instant,
 }
 
 impl Default for GarlicJrApp {
@@ -83,6 +87,7 @@ impl Default for GarlicJrApp {
                 size: [8 * 16, 8 * 24],
             },
             tile_data_texture: None,
+            frame_tracker: Instant::now(),
         }
     }
 }
@@ -101,7 +106,10 @@ impl eframe::App for GarlicJrApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let elapsed_time = self.frame_tracker.elapsed();
+        self.frame_tracker = Instant::now();
+
         if let Ok(bootrom) = self.bootrom_channel.1.try_recv() {
             self.dmg_system.bootrom = Some(bootrom);
         }
@@ -113,7 +121,7 @@ impl eframe::App for GarlicJrApp {
         }
 
         if self.running {
-            let cycles = (1_000_000f32 * frame.info().cpu_usage.unwrap_or(0f32)) as u64;
+            let cycles = (1_048_576f32 * elapsed_time.as_secs_f32()) as u64;
             for _ in 0..cycles {
                 self.dmg_system.run_cycle();
             }
@@ -201,10 +209,7 @@ impl eframe::App for GarlicJrApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("GarlicJr");
 
-            ui.label(format!(
-                "Update time: {:.3}",
-                frame.info().cpu_usage.unwrap_or(0f32)
-            ));
+            ui.label(format!("FPS: {:.0}", 1f32 / elapsed_time.as_secs_f32(),));
 
             ui.separator();
 

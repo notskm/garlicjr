@@ -21,6 +21,7 @@ eframe = { version = "0.31", default-features = false, features = [
 log = "0.4.27"
 serde = { version = "1.0.219", features = ["derive"] }
 rfd = "0.15.3"
+web-time = "1.1.0" # Drop-in replacement for std::time for web & native
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
