@@ -18,7 +18,6 @@
 */
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-#[allow(dead_code)]
 pub enum Opcode {
     Nop,
     LdReg8Imm8(Register8Bit),
@@ -794,12 +793,10 @@ const PREFIX_OPTABLE: [Opcode; 256] = [
 ];
 
 impl Opcode {
-    #[allow(dead_code)]
     pub fn decode(data: u8) -> Opcode {
         OPTABLE[data as usize]
     }
 
-    #[allow(dead_code)]
     pub fn decode_as_prefix(data: u8) -> Opcode {
         PREFIX_OPTABLE[data as usize]
     }
