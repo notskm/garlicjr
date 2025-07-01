@@ -21,8 +21,15 @@ use crate::number::OverflowHalfCarry;
 use crate::opcode::{Cond, Opcode, Register8Bit, Register16Bit, Register16BitStack};
 use crate::{Bus, ReadWriteMode};
 
+/// An emulator of the SharpSM83 CPU
+///
+/// For detailed information about this CPU, see the Pan Docs:
+/// <https://gbdev.io/pandocs/>
 pub struct SharpSM83 {
+    /// The register file as described in the Pan Docs:
+    /// <https://gbdev.io/pandocs/CPU_Registers_and_Flags.html>
     pub registers: Registers,
+
     interrupt_master_enable: InterruptEnableFlag,
     current_tick: u8,
     opcode: Opcode,
@@ -32,6 +39,15 @@ pub struct SharpSM83 {
     mode: CpuMode,
 }
 
+/// The SharpSM83's registers
+///
+/// For detailed information about the SharpSM83's registers and how they work,
+/// see the Pan Docs: <https://gbdev.io/pandocs/CPU_Registers_and_Flags.html>
+///
+/// Note that the register file contains an interrupt enable, and interrupt
+/// flags, which together control which interrupts the CPU handles. While not
+/// explicitly stated to be part of the CPU's register file, this seemed like
+/// the most natural place for them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Registers {
     pub a: u8,
@@ -83,6 +99,14 @@ enum CpuMode {
 }
 
 impl SharpSM83 {
+    /// Creates a new SharpSM83 with all registers set to 0.
+    ///
+    /// # Examples
+    /// ```
+    /// use garlicjr::SharpSM83;
+    ///
+    /// let cpu = SharpSM83::new();
+    /// ```
     pub fn new() -> SharpSM83 {
         SharpSM83 {
             registers: Registers {
@@ -109,6 +133,42 @@ impl SharpSM83 {
         }
     }
 
+    /// Runs the CPU for one T-cycle, or 1/4 of an M-cycle.
+    ///
+    /// Running this function 4 times constitutes 1 M-cycle.
+    ///
+    /// The SharpSM83 runs at a rate of 4 mebihertz. To run the CPU in realtime,
+    /// call this function 4194304 times per second.
+    ///
+    /// After every 4 calls to this function, the CPU may request a read or a
+    /// write via the bus. The read or write should be handled before the next
+    /// call to this function. See the examples for details.
+    ///
+    /// # Panics
+    /// This function will panic when trying to execute an instruction that has
+    /// not yet been implemented.
+    ///
+    /// In some future version, this function should not panic.
+    ///
+    /// # Examples
+    /// ```
+    /// use garlicjr::{SharpSM83, Bus, ReadWriteMode};
+    ///
+    /// let mut cpu = SharpSM83::new();
+    /// let mut bus = Bus::new();
+    /// let mut memory = vec![0u8; u16::MAX as usize];
+    ///
+    /// // Run 1 M-cycle
+    /// for _ in 0..4 {
+    ///     cpu.tick(&mut bus);
+    /// }
+    ///
+    /// // After 1 M-cycle, handle read/write requests.
+    /// match bus.mode {
+    ///     ReadWriteMode::Read => bus.data = memory[bus.address as usize],
+    ///     ReadWriteMode::Write => memory[bus.address as usize] = bus.data,
+    /// }
+    /// ```
     pub fn tick(&mut self, bus: &mut Bus) {
         if self.should_wake_from_halt() {
             self.mode = CpuMode::Running;
