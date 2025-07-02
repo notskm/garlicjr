@@ -36,6 +36,7 @@ pub use memory::*;
 pub use ppu::*;
 pub use system::*;
 pub use timer::Timer;
+pub use timer::TimerRegisters;
 
 pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")

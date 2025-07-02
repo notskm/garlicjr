@@ -17,14 +17,34 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
+/// A timer that produces interrupts on overflow.
 #[derive(Default)]
 pub struct Timer {
-    pub registers: Registers,
+    /// The timer's registers
+    ///
+    /// The registers should be memory mapped according to the Pan Docs:
+    /// <https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#timer-and-divider-registers>
+    pub registers: TimerRegisters,
     tima_counter: u16,
     request_interrupt: bool,
 }
 
 impl Timer {
+    /// Runs the timer for 1 T-Cycle (1/4 M-cycle) and requests interrupts
+    ///
+    /// After a call to this function, the timer may request an interrupt.
+    /// The subsequent call may disable the interrupt, request.
+    /// See [Timer::interrupt_requested] for details.
+    ///
+    /// # Panics
+    /// This function does not panic.
+    ///
+    /// # Examples
+    /// ```
+    /// use garlicjr::Timer;
+    /// let mut timer = Timer::default();
+    /// timer.tick();
+    /// ```
     pub fn tick(&mut self) {
         self.request_interrupt = false;
 
@@ -45,6 +65,30 @@ impl Timer {
         }
     }
 
+    /// Returns whether a timer interrupt should be triggered
+    ///
+    /// In a full system, the CPU may reject interrupt requests.
+    ///
+    /// Calls to [Timer::tick] will enable and disable this intterupt request out of
+    /// sync with the CPU. To avoid missing interrupt requests, the return
+    /// value of this function should be bitwise ORed onto the CPU's intterupt
+    /// request line.
+    //
+    /// # Panics
+    /// This function does not panic.
+    ///
+    /// # Examples
+    /// ```
+    /// use garlicjr::Timer;
+    /// let mut timer = Timer::default();
+    /// timer.registers.tima = 0xFF; // Prepare to overflow
+    /// timer.registers.tma = 0xFF; // Overflow on every increment
+    /// timer.registers.set_tac(0b00000101); // increment every 4 M-cycles
+    /// for _ in 0..16 {
+    ///     timer.tick();
+    /// }
+    /// assert!(timer.interrupt_requested());
+    /// ```
     pub fn interrupt_requested(&self) -> bool {
         self.request_interrupt
     }
@@ -75,13 +119,24 @@ impl Timer {
     }
 }
 
-pub struct Registers {
+/// [Timer]'s register file, determines the behavior of [Timer]
+///
+/// See the Pan Docs for more details:
+/// <https://gbdev.io/pandocs/Timer_and_Divider_Registers.html#timer-and-divider-registers>
+pub struct TimerRegisters {
+    /// Increments at a frequency determined by [TimerRegisters::set_tac]
     pub tima: u8,
+
+    /// Determines when timer interrupts are requested
     pub tma: u8,
-    pub tac: u8,
+
+    tac: u8,
 }
 
-impl Default for Registers {
+impl Default for TimerRegisters {
+    /// Returns a set of [TimerRegisters] with each register
+    /// set to 0. Note that [TimerRegisters::get_tac] returns `0b11111000`,
+    /// since only the bottom 3 bits of the TAC register are relevant.
     fn default() -> Self {
         Self {
             tima: 0,
@@ -91,11 +146,15 @@ impl Default for Registers {
     }
 }
 
-impl Registers {
+impl TimerRegisters {
+    /// Sets the TAC register, ignoring the top 5 bits
+    ///
+    /// Determines how often [TimerRegisters::tima] increments
     pub fn set_tac(&mut self, value: u8) {
         self.tac = 0b11111000 | (value & 0b00000111)
     }
 
+    /// Returns the value of the TAC register
     pub fn get_tac(&self) -> u8 {
         self.tac
     }
