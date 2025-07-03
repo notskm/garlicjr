@@ -408,6 +408,8 @@ impl SharpSM83 {
             Opcode::PushReg16Stack(register) => self.push_r16_stack(register, bus),
             Opcode::PopReg16Stack(register) => self.pop_r16_stack(register, bus),
 
+            Opcode::Scf => self.scf(),
+
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
             Opcode::Rl(register) => self.rl_r8(register),
@@ -1781,6 +1783,16 @@ impl SharpSM83 {
         }
     }
 
+    fn scf(&mut self) {
+        if self.current_tick == 2 {
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, true);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rlc_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
@@ -2276,6 +2288,7 @@ mod tests {
     #[case("33.json")]
     #[case("34.json")]
     #[case("35.json")]
+    #[case("37.json")]
     #[case("39.json")]
     #[case("3a.json")]
     #[case("3b.json")]
