@@ -141,7 +141,7 @@ impl SharpSM83 {
     /// call this function 4194304 times per second.
     ///
     /// After every 4 calls to this function, the CPU may request a read or a
-    /// write via the bus. The read or write should be handled before the next
+    /// write via the `bus`. The read or write should be handled before the next
     /// call to this function. See the examples for details.
     ///
     /// # Panics
