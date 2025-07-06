@@ -386,6 +386,7 @@ impl SharpSM83 {
             Opcode::XorAReg8(register) => self.xor_a_r8(register),
             Opcode::XorImm8 => self.xor_a_imm8(bus),
             Opcode::Rrca => self.rrca(),
+            Opcode::Rlca => self.rlca(),
             Opcode::Rla => self.rla(),
             Opcode::Rra => self.rra(),
             Opcode::AndImm8 => self.and_a_imm8(bus),
@@ -1345,6 +1346,19 @@ impl SharpSM83 {
         }
     }
 
+    fn rlca(&mut self) {
+        if self.current_tick == 2 {
+            let carry = self.registers.a & 0b10000000;
+            self.registers.a = self.registers.a.rotate_left(1);
+            self.set_flag(Flags::Z, false);
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, carry > 0);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn rla(&mut self) {
         self.rl_r8(Register8Bit::A);
         self.set_flag(Flags::Z, false);
@@ -2245,6 +2259,7 @@ mod tests {
     #[case("04.json")]
     #[case("05.json")]
     #[case("06.json")]
+    #[case("07.json")]
     #[case("08.json")]
     #[case("09.json")]
     #[case("0e.json")]
