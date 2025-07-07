@@ -391,6 +391,7 @@ impl SharpSM83 {
             Opcode::Rra => self.rra(),
             Opcode::AndImm8 => self.and_a_imm8(bus),
             Opcode::XorAHlAddr => self.xor_a_hl_addr(bus),
+            Opcode::Cpl => self.cpl(),
 
             Opcode::CpReg8(register) => self.cp_a_r8(register),
             Opcode::CpImm8 => self.cp_a_imm8(bus),
@@ -1410,6 +1411,17 @@ impl SharpSM83 {
         }
     }
 
+    fn cpl(&mut self) {
+        if self.current_tick == 2 {
+            self.registers.a = !self.registers.a;
+
+            self.set_flag(Flags::N, true);
+            self.set_flag(Flags::H, true);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn cp_a_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
@@ -2297,6 +2309,7 @@ mod tests {
     #[case("2c.json")]
     #[case("2d.json")]
     #[case("2e.json")]
+    #[case("2f.json")]
     #[case("30.json")]
     #[case("31.json")]
     #[case("32.json")]
