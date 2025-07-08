@@ -392,6 +392,7 @@ impl SharpSM83 {
             Opcode::AndImm8 => self.and_a_imm8(bus),
             Opcode::XorAHlAddr => self.xor_a_hl_addr(bus),
             Opcode::Cpl => self.cpl(),
+            Opcode::Ccf => self.ccf(),
 
             Opcode::CpReg8(register) => self.cp_a_r8(register),
             Opcode::CpImm8 => self.cp_a_imm8(bus),
@@ -1422,6 +1423,18 @@ impl SharpSM83 {
         }
     }
 
+    fn ccf(&mut self) {
+        if self.current_tick == 2 {
+            let carry_complement = !self.get_flag(Flags::C);
+
+            self.set_flag(Flags::N, false);
+            self.set_flag(Flags::H, false);
+            self.set_flag(Flags::C, carry_complement);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
     fn cp_a_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let data = self.read_from_register(register);
@@ -2324,6 +2337,7 @@ mod tests {
     #[case("3d.json")]
     #[case("3e.json")]
     #[case("38.json")]
+    #[case("3f.json")]
     #[case("40.json")]
     #[case("41.json")]
     #[case("42.json")]
