@@ -329,6 +329,7 @@ impl SharpSM83 {
                 IncrementMode::Decrement,
                 bus,
             ),
+            Opcode::LdHlAddrImm8 => self.ld_hl_addr_imm8(bus),
             Opcode::LdHlAddrReg8(register) => {
                 self.ld_r16_r8(Register16Bit::HL, register, IncrementMode::None, bus)
             }
@@ -528,6 +529,25 @@ impl SharpSM83 {
                 };
             }
             6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn ld_hl_addr_imm8(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.write_program_counter(bus);
+                self.increment_program_counter();
+            }
+            4 => {
+                // Whatever data we read in the last step needs to be written
+                // now. Since it's already on the bus, we leave bus.data alone.
+                bus.mode = ReadWriteMode::Write;
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+            }
+            10 => {
                 self.phase = Phase::Fetch;
             }
             _ => (),
@@ -2355,6 +2375,7 @@ mod tests {
     #[case("33.json")]
     #[case("34.json")]
     #[case("35.json")]
+    #[case("36.json")]
     #[case("37.json")]
     #[case("39.json")]
     #[case("3a.json")]
