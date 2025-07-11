@@ -81,7 +81,7 @@ pub enum Opcode {
     JpHl,
     CallCondImm16(Cond),
     CallImm16,
-    Rst(RstTarget),
+    Rst(u16),
     Prefix,
     AddAImm8,
     SubImm8,
@@ -474,7 +474,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Nz),
     Opcode::PushReg16Stack(Register16BitStack::BC),
     Opcode::AddAImm8,
-    Opcode::Rst(RstTarget::Addr00),
+    Opcode::Rst(0x0000),
     Opcode::RetCond(Cond::Z),
     Opcode::Ret,
     Opcode::JpCondImm16(Cond::Z),
@@ -482,7 +482,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Z),
     Opcode::CallImm16,
     Opcode::AdcAImm8,
-    Opcode::Rst(RstTarget::Addr08),
+    Opcode::Rst(0x0008),
     Opcode::RetCond(Cond::Nc),
     Opcode::PopReg16Stack(Register16BitStack::DE),
     Opcode::JpCondImm16(Cond::Nc),
@@ -490,7 +490,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::Nc),
     Opcode::PushReg16Stack(Register16BitStack::DE),
     Opcode::SubImm8,
-    Opcode::Rst(RstTarget::Addr10),
+    Opcode::Rst(0x0010),
     Opcode::RetCond(Cond::C),
     Opcode::Reti,
     Opcode::JpCondImm16(Cond::C),
@@ -498,7 +498,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::CallCondImm16(Cond::C),
     Opcode::Unimplemented(0xDD),
     Opcode::SbcAImm8,
-    Opcode::Rst(RstTarget::Addr18),
+    Opcode::Rst(0x0018),
     Opcode::LdhImm8AddrA,
     Opcode::PopReg16Stack(Register16BitStack::HL),
     Opcode::LdCAddrA,
@@ -506,7 +506,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xE4),
     Opcode::PushReg16Stack(Register16BitStack::HL),
     Opcode::AndImm8,
-    Opcode::Rst(RstTarget::Addr20),
+    Opcode::Rst(0x0020),
     Opcode::AddSpImm8,
     Opcode::JpHl,
     Opcode::LdImm16AddrA,
@@ -514,7 +514,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xEC),
     Opcode::Unimplemented(0xED),
     Opcode::XorImm8,
-    Opcode::Rst(RstTarget::Addr28),
+    Opcode::Rst(0x0028),
     Opcode::LdhAImm8Addr,
     Opcode::PopReg16Stack(Register16BitStack::AF),
     Opcode::LdACAddr,
@@ -522,7 +522,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xF4),
     Opcode::PushReg16Stack(Register16BitStack::AF),
     Opcode::OrImm8,
-    Opcode::Rst(RstTarget::Addr30),
+    Opcode::Rst(0x0030),
     Opcode::LdHlSpPlusImm8,
     Opcode::LdSpHl,
     Opcode::LdAImm16Addr,
@@ -530,7 +530,7 @@ const OPTABLE: [Opcode; 256] = [
     Opcode::Unimplemented(0xFC),
     Opcode::Unimplemented(0xFD),
     Opcode::CpImm8,
-    Opcode::Rst(RstTarget::Addr38),
+    Opcode::Rst(0x0038),
 ];
 
 const PREFIX_OPTABLE: [Opcode; 256] = [
@@ -837,18 +837,6 @@ pub enum Cond {
     C,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum RstTarget {
-    Addr00,
-    Addr10,
-    Addr20,
-    Addr30,
-    Addr08,
-    Addr18,
-    Addr28,
-    Addr38,
-}
-
 #[cfg(test)]
 mod tests {
     use rstest::*;
@@ -1084,14 +1072,14 @@ mod tests {
     #[case(0xCC, Opcode::CallCondImm16(Cond::Z))]
     #[case(0xDC, Opcode::CallCondImm16(Cond::C))]
     #[case(0xCD, Opcode::CallImm16)]
-    #[case(0xC7, Opcode::Rst(RstTarget::Addr00))]
-    #[case(0xD7, Opcode::Rst(RstTarget::Addr10))]
-    #[case(0xE7, Opcode::Rst(RstTarget::Addr20))]
-    #[case(0xF7, Opcode::Rst(RstTarget::Addr30))]
-    #[case(0xCF, Opcode::Rst(RstTarget::Addr08))]
-    #[case(0xDF, Opcode::Rst(RstTarget::Addr18))]
-    #[case(0xEF, Opcode::Rst(RstTarget::Addr28))]
-    #[case(0xFF, Opcode::Rst(RstTarget::Addr38))]
+    #[case(0xC7, Opcode::Rst(0x0000))]
+    #[case(0xD7, Opcode::Rst(0x0010))]
+    #[case(0xE7, Opcode::Rst(0x0020))]
+    #[case(0xF7, Opcode::Rst(0x0030))]
+    #[case(0xCF, Opcode::Rst(0x0008))]
+    #[case(0xDF, Opcode::Rst(0x0018))]
+    #[case(0xEF, Opcode::Rst(0x0028))]
+    #[case(0xFF, Opcode::Rst(0x0038))]
     #[case(0xCB, Opcode::Prefix)]
     #[case(0xC6, Opcode::AddAImm8)]
     #[case(0xD6, Opcode::SubImm8)]
