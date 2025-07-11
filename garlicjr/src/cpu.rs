@@ -413,6 +413,8 @@ impl SharpSM83 {
             Opcode::PushReg16Stack(register) => self.push_r16_stack(register, bus),
             Opcode::PopReg16Stack(register) => self.pop_r16_stack(register, bus),
 
+            Opcode::Rst(address) => self.rst(address, bus),
+
             Opcode::Scf => self.scf(),
 
             Opcode::RlcReg8(register) => self.rlc_r8(register),
@@ -1868,6 +1870,33 @@ impl SharpSM83 {
         }
     }
 
+    fn rst(&mut self, address: u16, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+            }
+            4 => {
+                bus.address = self.registers.stack_pointer;
+                bus.data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
+                bus.mode = ReadWriteMode::Write;
+
+                self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
+            }
+            8 => {
+                bus.address = self.registers.stack_pointer;
+                bus.data = (self.registers.program_counter & 0x00FFu16) as u8;
+                bus.mode = ReadWriteMode::Write;
+            }
+            12 => {
+                self.registers.program_counter = address;
+            }
+            14 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn scf(&mut self) {
         if self.current_tick == 2 {
             self.set_flag(Flags::N, false);
@@ -2516,40 +2545,48 @@ mod tests {
     #[case("c4.json")]
     #[case("c5.json")]
     #[case("c6.json")]
+    #[case("c7.json")]
     #[case("c8.json")]
     #[case("c9.json")]
     #[case("ca.json")]
     #[case("cc.json")]
     #[case("cd.json")]
     #[case("ce.json")]
+    #[case("cf.json")]
     #[case("d0.json")]
     #[case("d1.json")]
     #[case("d2.json")]
     #[case("d4.json")]
     #[case("d5.json")]
     #[case("d6.json")]
+    #[case("d7.json")]
     #[case("d8.json")]
     #[case("da.json")]
     #[case("dc.json")]
     #[case("de.json")]
+    #[case("df.json")]
     #[case("e0.json")]
     #[case("e1.json")]
     #[case("e2.json")]
     #[case("e5.json")]
     #[case("e6.json")]
+    #[case("e7.json")]
     #[case("e8.json")]
     #[case("e9.json")]
     #[case("ea.json")]
     #[case("ee.json")]
+    #[case("ef.json")]
     #[case("f0.json")]
     #[case("f1.json")]
     #[case("f2.json")]
     #[case("f5.json")]
     #[case("f6.json")]
+    #[case("f7.json")]
     #[case("f8.json")]
     #[case("f9.json")]
     #[case("fa.json")]
     #[case("fe.json")]
+    #[case("ff.json")]
     #[case("cb_00.json")]
     #[case("cb_01.json")]
     #[case("cb_02.json")]
