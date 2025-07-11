@@ -30,7 +30,7 @@ use rstest::rstest;
 #[case("05-op rp", 4)]
 #[case("06-ld r,r", 2)]
 // #[case("07-jr,jp,call,ret,rst", 0)]
-// #[case("08-misc instrs", 0)]
+#[case("08-misc instrs", 1)]
 // #[case("09-op r,r", 0)]
 // #[case("10-bit ops", 0)]
 // #[case("11-op a,(hl)", 0)]
