@@ -23,17 +23,17 @@ use garlicjr::{Cartridge, ReadWriteMode, System};
 use rstest::rstest;
 
 #[rstest]
-// #[case("01-special", 0)]
-#[case("02-interrupts", 1)]
-#[case("03-op sp,hl", 3)]
-#[case("04-op r,imm", 3)]
-#[case("05-op rp", 4)]
-#[case("06-ld r,r", 2)]
-// #[case("07-jr,jp,call,ret,rst", 0)]
-#[case("08-misc instrs", 1)]
-// #[case("09-op r,r", 0)]
-// #[case("10-bit ops", 0)]
-// #[case("11-op a,(hl)", 0)]
+// #[case::cpu_instrs_01_special("01-special", 0)]
+#[case::cpu_instrs_02_interrupts("02-interrupts", 1)]
+#[case::cpu_instrs_03_op_sp_hl("03-op sp,hl", 3)]
+#[case::cpu_instrs_04_op_r_imm("04-op r,imm", 3)]
+#[case::cpu_instrs_05_op_rp("05-op rp", 4)]
+#[case::cpu_instrs_06_ld_r_r("06-ld r,r", 2)]
+// #[case::cpu_instrs_07_jr_jp_call_ret_rst("07-jr,jp,call,ret,rst", 0)]
+#[case::cpu_instrs_08_misc_instrs("08-misc instrs", 1)]
+// #[case::cpu_instrs_09_op_r_r("09-op r,r", 0)]
+// #[case::cpu_instrs_10_bit_ops("10-bit ops", 0)]
+// #[case::cpu_instrs_11_op_a_hl("11-op a,(hl)", 0)]
 fn should_pass_blargg_cpu_instrs_tests(#[case] test_file: &str, #[case] seconds: i32) {
     let test_filepath = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("test-data")
