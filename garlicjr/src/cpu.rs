@@ -367,6 +367,7 @@ impl SharpSM83 {
             Opcode::SubAHlAddr => self.sub_a_hladdr(bus),
             Opcode::AdcAReg8(register) => self.adc_a_r8(register),
             Opcode::AdcAImm8 => self.adc_a_imm8(bus),
+            Opcode::AdcAHlAddr => self.adc_a_hl_addr(bus),
             Opcode::SbcAReg8(register) => self.sbc_a_r8(register),
             Opcode::SbcAImm8 => self.sbc_a_imm8(bus),
             Opcode::SbcAHlAddr => self.sbc_a_hl_addr(bus),
@@ -953,6 +954,31 @@ impl SharpSM83 {
             2 => {
                 self.write_program_counter(bus);
                 self.increment_program_counter();
+            }
+            4 => {
+                let carry_flag = self.get_flag(Flags::C);
+
+                let (new_value, carry, half_carry) =
+                    self.registers.a.full_overflowing_add(bus.data, carry_flag);
+
+                self.set_flag(Flags::Z, new_value == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, half_carry);
+                self.set_flag(Flags::C, carry);
+                self.registers.a = new_value;
+            }
+            6 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
+    fn adc_a_hl_addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
             }
             4 => {
                 let carry_flag = self.get_flag(Flags::C);
@@ -2517,6 +2543,7 @@ mod tests {
     #[case::opcode_8b("8b.json")]
     #[case::opcode_8c("8c.json")]
     #[case::opcode_8d("8d.json")]
+    #[case::opcode_8e("8e.json")]
     #[case::opcode_8f("8f.json")]
     #[case::opcode_90("90.json")]
     #[case::opcode_91("91.json")]
