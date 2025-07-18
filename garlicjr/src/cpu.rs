@@ -28,7 +28,7 @@ use crate::{Bus, ReadWriteMode};
 pub struct SharpSM83 {
     /// The register file as described in the Pan Docs:
     /// <https://gbdev.io/pandocs/CPU_Registers_and_Flags.html>
-    pub registers: Registers,
+    pub registers: CpuRegisters,
 
     interrupt_master_enable: InterruptEnableFlag,
     current_tick: u8,
@@ -49,7 +49,7 @@ pub struct SharpSM83 {
 /// explicitly stated to be part of the CPU's register file, this seemed like
 /// the most natural place for them.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Registers {
+pub struct CpuRegisters {
     pub a: u8,
     pub b: u8,
     pub c: u8,
@@ -109,7 +109,7 @@ impl SharpSM83 {
     /// ```
     pub fn new() -> SharpSM83 {
         SharpSM83 {
-            registers: Registers {
+            registers: CpuRegisters {
                 a: 0,
                 b: 0,
                 c: 0,
@@ -2808,7 +2808,7 @@ mod tests {
             let mut ram = [0u8; 64 * 1024];
             let mut bus = Bus::new();
 
-            let initial_state = Registers {
+            let initial_state = CpuRegisters {
                 a: test.initial_state.a,
                 b: test.initial_state.b,
                 c: test.initial_state.c,
@@ -2888,7 +2888,7 @@ mod tests {
                 }
             }
 
-            let final_state = Registers {
+            let final_state = CpuRegisters {
                 a: test.final_state.a,
                 b: test.final_state.b,
                 c: test.final_state.c,
