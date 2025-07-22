@@ -422,6 +422,7 @@ impl SharpSM83 {
             Opcode::RlcReg8(register) => self.rlc_r8(register),
             Opcode::RlcHlAddr => self.rlc_hladdr(bus),
             Opcode::RrcReg8(register) => self.rrc_r8(register),
+            Opcode::RrcHlAddr => self.rrc_hl_addr(bus),
             Opcode::Rl(register) => self.rl_r8(register),
             Opcode::Rr(register) => self.rr_r8(register),
             Opcode::RrHlAddr => self.rr_hl_addr(bus),
@@ -2011,6 +2012,31 @@ impl SharpSM83 {
         }
     }
 
+    fn rrc_hl_addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let overflow = bus.data & 0b00000001 > 0;
+                bus.data = bus.data.rotate_right(1);
+
+                self.set_flag(Flags::Z, bus.data == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, false);
+                self.set_flag(Flags::C, overflow);
+
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Write;
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn rr_r8(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let mut data = self.read_from_register(register);
@@ -2700,6 +2726,7 @@ mod tests {
     #[case::opcode_cb_0b("cb_0b.json")]
     #[case::opcode_cb_0c("cb_0c.json")]
     #[case::opcode_cb_0d("cb_0d.json")]
+    #[case::opcode_cb_0e("cb_0e.json")]
     #[case::opcode_cb_0f("cb_0f.json")]
     #[case::opcode_cb_10("cb_10.json")]
     #[case::opcode_cb_11("cb_11.json")]
