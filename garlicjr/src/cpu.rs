@@ -429,6 +429,7 @@ impl SharpSM83 {
             Opcode::RrHlAddr => self.rr_hl_addr(bus),
             Opcode::Bit(mask, register) => self.bit(mask, register),
             Opcode::Srl(register) => self.srl(register),
+            Opcode::SrlHlAddr => self.srl_hl_addr(bus),
             Opcode::Swap(register) => self.swap(register),
             Opcode::SwapHlAddr => self.swap_hl_addr(bus),
 
@@ -2143,6 +2144,31 @@ impl SharpSM83 {
         }
     }
 
+    fn srl_hl_addr(&mut self, bus: &mut Bus) {
+        match self.current_tick {
+            2 => {
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Read;
+            }
+            4 => {
+                let carry = bus.data & 1 > 0;
+                bus.data >>= 1;
+
+                self.set_flag(Flags::Z, bus.data == 0);
+                self.set_flag(Flags::N, false);
+                self.set_flag(Flags::H, false);
+                self.set_flag(Flags::C, carry);
+
+                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                bus.mode = ReadWriteMode::Write;
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn swap(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let value = self.read_from_register(register);
@@ -2806,13 +2832,13 @@ mod tests {
     #[case::opcode_cb_35("cb_35.json")]
     #[case::opcode_cb_36("cb_36.json")]
     #[case::opcode_cb_37("cb_37.json")]
-    #[case::opcode_cb_30("cb_30.json")]
     #[case::opcode_cb_38("cb_38.json")]
     #[case::opcode_cb_39("cb_39.json")]
     #[case::opcode_cb_3a("cb_3a.json")]
     #[case::opcode_cb_3b("cb_3b.json")]
     #[case::opcode_cb_3c("cb_3c.json")]
     #[case::opcode_cb_3d("cb_3d.json")]
+    #[case::opcode_cb_3e("cb_3e.json")]
     #[case::opcode_cb_3f("cb_3f.json")]
     #[case::opcode_cb_40("cb_40.json")]
     #[case::opcode_cb_41("cb_41.json")]
