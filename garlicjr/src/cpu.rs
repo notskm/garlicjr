@@ -200,7 +200,7 @@ impl SharpSM83 {
             Phase::Fetch => {
                 self.execute_opcode(bus);
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.phase = Phase::Decode;
                 self.current_tick = 0;
                 self.increment_program_counter();
@@ -226,7 +226,7 @@ impl SharpSM83 {
         }
     }
 
-    fn write_program_counter(&mut self, bus: &mut Bus) {
+    fn request_byte_at_program_counter(&mut self, bus: &mut Bus) {
         self.request_read(self.registers.program_counter, bus);
     }
 
@@ -482,7 +482,7 @@ impl SharpSM83 {
     fn ld_r_n8(&mut self, destination: Register8Bit, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -506,14 +506,14 @@ impl SharpSM83 {
     fn ld_r16_imm16(&mut self, register: Register16Bit, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 let low = bus.data;
                 self.write_to_16_bit_register_low(register, low);
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -556,7 +556,7 @@ impl SharpSM83 {
     fn ld_hl_addr_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -635,11 +635,11 @@ impl SharpSM83 {
     fn ld_imm16addr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
 
                 self.temp_16_bit = bus.data as u16;
@@ -658,13 +658,13 @@ impl SharpSM83 {
     fn ld_imm16addr_sp(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit = bus.data as u16;
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -694,13 +694,13 @@ impl SharpSM83 {
     fn ld_a_imm16addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit = bus.data as u16;
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -720,7 +720,7 @@ impl SharpSM83 {
     fn ldh_imm8addr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -737,7 +737,7 @@ impl SharpSM83 {
     fn ldh_a_imm8addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -774,7 +774,7 @@ impl SharpSM83 {
     fn ld_hl_sp_plus_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -947,7 +947,7 @@ impl SharpSM83 {
     fn adc_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1015,7 +1015,7 @@ impl SharpSM83 {
     fn sbc_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1065,7 +1065,7 @@ impl SharpSM83 {
     fn add_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1088,7 +1088,7 @@ impl SharpSM83 {
     fn sub_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1202,7 +1202,7 @@ impl SharpSM83 {
     fn add_sp_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1349,7 +1349,7 @@ impl SharpSM83 {
     fn xor_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1411,7 +1411,7 @@ impl SharpSM83 {
     fn or_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1467,7 +1467,7 @@ impl SharpSM83 {
     fn and_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1545,7 +1545,7 @@ impl SharpSM83 {
     fn cp_a_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1588,7 +1588,7 @@ impl SharpSM83 {
     fn jp_imm16(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1624,7 +1624,7 @@ impl SharpSM83 {
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -1660,7 +1660,7 @@ impl SharpSM83 {
 
         match (self.current_tick, should_jump) {
             (2, _) => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             (4, true) => {
@@ -1679,7 +1679,7 @@ impl SharpSM83 {
     fn jr_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1697,14 +1697,14 @@ impl SharpSM83 {
     fn call_imm16(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -1735,14 +1735,14 @@ impl SharpSM83 {
     fn call_cond_imm16(&mut self, condition: Cond, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
 
-                self.write_program_counter(bus);
+                self.request_byte_at_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
