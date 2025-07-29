@@ -227,8 +227,7 @@ impl SharpSM83 {
     }
 
     fn write_program_counter(&mut self, bus: &mut Bus) {
-        bus.address = self.registers.program_counter;
-        bus.mode = ReadWriteMode::Read;
+        self.request_read(self.registers.program_counter, bus);
     }
 
     fn read_opcode(&mut self, bus: &mut Bus) {
@@ -264,16 +263,16 @@ impl SharpSM83 {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
             }
             8 => {
-                bus.address = self.registers.stack_pointer;
-                bus.data = self.registers.program_counter.to_be_bytes()[0];
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = self.registers.program_counter.to_be_bytes()[0];
+                self.request_write(address, data, bus);
 
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
             }
             12 => {
-                bus.address = self.registers.stack_pointer;
-                bus.data = self.registers.program_counter.to_be_bytes()[1];
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = self.registers.program_counter.to_be_bytes()[1];
+                self.request_write(address, data, bus);
 
                 let mut mask = 1;
                 let mut shift = 0;
@@ -296,6 +295,17 @@ impl SharpSM83 {
 
     fn increment_program_counter(&mut self) {
         self.registers.program_counter = self.registers.program_counter.wrapping_add(1);
+    }
+
+    fn request_read(&self, address: u16, bus: &mut Bus) {
+        bus.address = address;
+        bus.mode = ReadWriteMode::Read;
+    }
+
+    fn request_write(&self, address: u16, data: u8, bus: &mut Bus) {
+        bus.address = address;
+        bus.data = data;
+        bus.mode = ReadWriteMode::Write;
     }
 
     fn execute_opcode(&mut self, bus: &mut Bus) {
@@ -472,8 +482,7 @@ impl SharpSM83 {
     fn ld_r_n8(&mut self, destination: Register8Bit, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.mode = ReadWriteMode::Read;
-                bus.address = self.registers.program_counter;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -497,16 +506,14 @@ impl SharpSM83 {
     fn ld_r16_imm16(&mut self, register: Register16Bit, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 let low = bus.data;
                 self.write_to_16_bit_register_low(register, low);
 
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -529,9 +536,9 @@ impl SharpSM83 {
     ) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(destination);
-                bus.data = self.read_from_register(source);
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(destination);
+                let data = self.read_from_register(source);
+                self.request_write(address, data, bus);
 
                 match mode {
                     IncrementMode::Increment => self.add_to_16_bit_register(destination, 1),
@@ -553,10 +560,9 @@ impl SharpSM83 {
                 self.increment_program_counter();
             }
             4 => {
-                // Whatever data we read in the last step needs to be written
-                // now. Since it's already on the bus, we leave bus.data alone.
-                bus.mode = ReadWriteMode::Write;
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                let data = bus.data;
+                self.request_write(address, data, bus);
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -574,8 +580,8 @@ impl SharpSM83 {
     ) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(source);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(source);
+                self.request_read(address, bus);
             }
             4 => {
                 self.write_to_register(destination, bus.data);
@@ -600,9 +606,8 @@ impl SharpSM83 {
     fn ld_caddr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = 0xFF00 + self.registers.c as u16;
-                bus.data = self.registers.a;
-                bus.mode = ReadWriteMode::Write;
+                let address = 0xFF00 + self.registers.c as u16;
+                self.request_write(address, self.registers.a, bus);
             }
             6 => {
                 self.phase = Phase::Fetch;
@@ -614,8 +619,8 @@ impl SharpSM83 {
     fn ld_a_caddr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = 0xFF00 + self.registers.c as u16;
-                bus.mode = ReadWriteMode::Read;
+                let address = 0xFF00 + self.registers.c as u16;
+                self.request_read(address, bus);
             }
             4 => {
                 self.registers.a = bus.data;
@@ -630,23 +635,18 @@ impl SharpSM83 {
     fn ld_imm16addr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
 
                 self.temp_16_bit = bus.data as u16;
             }
             8 => {
                 self.temp_16_bit |= (bus.data as u16) << 8;
-
-                bus.address = self.temp_16_bit;
-                bus.data = self.registers.a;
-                bus.mode = ReadWriteMode::Write;
+                self.request_write(self.temp_16_bit, self.registers.a, bus);
             }
             14 => {
                 self.phase = Phase::Fetch;
@@ -658,16 +658,14 @@ impl SharpSM83 {
     fn ld_imm16addr_sp(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
-                self.increment_program_counter();
-
                 self.temp_16_bit = bus.data as u16;
+
+                self.write_program_counter(bus);
+                self.increment_program_counter();
             }
             8 => {
                 self.temp_16_bit |= (bus.data as u16) << 8;
@@ -676,18 +674,15 @@ impl SharpSM83 {
                     .read_from_16_bit_register(Register16Bit::SP)
                     .to_be_bytes();
 
-                bus.address = self.temp_16_bit;
-                bus.data = low;
-                bus.mode = ReadWriteMode::Write;
+                self.request_write(self.temp_16_bit, low, bus);
             }
             12 => {
                 let [high, _] = self
                     .read_from_16_bit_register(Register16Bit::SP)
                     .to_be_bytes();
 
-                bus.address = self.temp_16_bit.wrapping_add(1);
-                bus.data = high;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.temp_16_bit.wrapping_add(1);
+                self.request_write(address, high, bus);
             }
             18 => {
                 self.phase = Phase::Fetch;
@@ -699,22 +694,18 @@ impl SharpSM83 {
     fn ld_a_imm16addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit = bus.data as u16;
 
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
                 self.temp_16_bit |= (bus.data as u16) << 8;
-
-                bus.address = self.temp_16_bit;
-                bus.mode = ReadWriteMode::Read;
+                self.request_read(self.temp_16_bit, bus);
             }
             12 => {
                 self.registers.a = bus.data;
@@ -729,14 +720,12 @@ impl SharpSM83 {
     fn ldh_imm8addr_a(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = 0xFF00 + bus.data as u16;
-                bus.data = self.registers.a;
-                bus.mode = ReadWriteMode::Write;
+                let address = 0xFF00 + bus.data as u16;
+                self.request_write(address, self.registers.a, bus);
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -748,13 +737,12 @@ impl SharpSM83 {
     fn ldh_a_imm8addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = 0xFF00 + bus.data as u16;
-                bus.mode = ReadWriteMode::Read;
+                let address = 0xFF00 + bus.data as u16;
+                self.request_read(address, bus);
             }
             8 => {
                 self.registers.a = bus.data;
@@ -984,8 +972,8 @@ impl SharpSM83 {
     fn adc_a_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let carry_flag = self.get_flag(Flags::C);
@@ -1052,8 +1040,8 @@ impl SharpSM83 {
     fn sbc_a_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let carry_flag = self.get_flag(Flags::C);
@@ -1140,8 +1128,8 @@ impl SharpSM83 {
     fn add_a_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let (new_value, carry, half_carry) =
@@ -1163,8 +1151,8 @@ impl SharpSM83 {
     fn sub_a_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let (new_value, borrow, half_borrow) =
@@ -1302,15 +1290,14 @@ impl SharpSM83 {
     fn inc_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let (new_value, _, half_carry) = bus.data.overflowing_add_with_half_carry(1);
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.data = new_value;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, new_value, bus);
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, false);
@@ -1327,15 +1314,14 @@ impl SharpSM83 {
     fn dec_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let (new_value, _, half_carry) = bus.data.overflowing_sub_with_half_carry(1);
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.data = new_value;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, new_value, bus);
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, true);
@@ -1405,8 +1391,8 @@ impl SharpSM83 {
     fn or_a_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 self.registers.a |= bus.data;
@@ -1502,8 +1488,7 @@ impl SharpSM83 {
         match self.current_tick {
             2 => {
                 let address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
-                bus.address = address;
+                self.request_read(address, bus);
             }
             4 => {
                 self.registers.a ^= bus.data;
@@ -1581,8 +1566,8 @@ impl SharpSM83 {
     fn cp_a_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let (result, borrow, half_borrow) =
@@ -1603,13 +1588,12 @@ impl SharpSM83 {
     fn jp_imm16(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.program_counter;
+                self.request_read(address, bus);
                 self.registers.program_counter &= 0b1111111100000000;
                 self.registers.program_counter |= bus.data as u16;
             }
@@ -1632,15 +1616,15 @@ impl SharpSM83 {
     fn jp_cond_imm16(&mut self, condition: Cond, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.program_counter;
+                self.request_read(address, bus);
                 self.increment_program_counter();
             }
             4 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
+
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -1676,8 +1660,7 @@ impl SharpSM83 {
 
         match (self.current_tick, should_jump) {
             (2, _) => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             (4, true) => {
@@ -1696,8 +1679,7 @@ impl SharpSM83 {
     fn jr_imm8(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
@@ -1715,16 +1697,14 @@ impl SharpSM83 {
     fn call_imm16(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
 
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -1733,15 +1713,15 @@ impl SharpSM83 {
             }
             12 => {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
+                self.request_write(address, data, bus);
             }
             16 => {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = (self.registers.program_counter & 0x00FFu16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = (self.registers.program_counter & 0x00FFu16) as u8;
+                self.request_write(address, data, bus);
 
                 self.registers.program_counter = self.temp_16_bit;
             }
@@ -1755,16 +1735,14 @@ impl SharpSM83 {
     fn call_cond_imm16(&mut self, condition: Cond, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             4 => {
                 self.temp_16_bit &= 0b1111111100000000;
                 self.temp_16_bit |= bus.data as u16;
 
-                bus.address = self.registers.program_counter;
-                bus.mode = ReadWriteMode::Read;
+                self.write_program_counter(bus);
                 self.increment_program_counter();
             }
             8 => {
@@ -1784,15 +1762,15 @@ impl SharpSM83 {
             }
             12 => {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
+                self.request_write(address, data, bus);
             }
             16 => {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = (self.registers.program_counter & 0x00FFu16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.registers.stack_pointer;
+                let data = (self.registers.program_counter & 0x00FFu16) as u8;
+                self.request_write(address, data, bus);
 
                 self.registers.program_counter = self.temp_16_bit;
             }
@@ -1806,16 +1784,16 @@ impl SharpSM83 {
     fn ret(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             4 => {
                 self.registers.program_counter &= 0xFF00;
                 self.registers.program_counter |= bus.data as u16;
 
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             8 => {
@@ -1832,8 +1810,8 @@ impl SharpSM83 {
     fn ret_cond(&mut self, condition: Cond, bus: &mut Bus) {
         match self.current_tick {
             4 => {
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             6 => {
@@ -1853,8 +1831,8 @@ impl SharpSM83 {
                 self.registers.program_counter &= 0xFF00;
                 self.registers.program_counter |= bus.data as u16;
 
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             12 => {
@@ -1871,26 +1849,22 @@ impl SharpSM83 {
     fn push_r16_stack(&mut self, register: Register16BitStack, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_stack_register(register);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_stack_register(register);
+                self.request_read(address, bus);
             }
             4 => {
                 let address = self.read_from_16_bit_stack_register(register);
                 let address_high = ((address & 0xFF00u16) >> 8) as u8;
 
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = address_high;
-                bus.mode = ReadWriteMode::Write;
+                self.request_write(self.registers.stack_pointer, address_high, bus);
             }
             8 => {
                 let address = self.read_from_16_bit_stack_register(register);
                 let address_low = (address & 0x00FFu16) as u8;
 
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
-                bus.address = self.registers.stack_pointer;
-                bus.data = address_low;
-                bus.mode = ReadWriteMode::Write;
+                self.request_write(self.registers.stack_pointer, address_low, bus);
             }
             14 => {
                 self.phase = Phase::Fetch;
@@ -1902,8 +1876,8 @@ impl SharpSM83 {
     fn pop_r16_stack(&mut self, register: Register16BitStack, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             4 => {
@@ -1915,8 +1889,8 @@ impl SharpSM83 {
 
                 self.write_to_16_bit_stack_register_low(register, data);
 
-                bus.address = self.registers.stack_pointer;
-                bus.mode = ReadWriteMode::Read;
+                let address = self.registers.stack_pointer;
+                self.request_read(address, bus);
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_add(1);
             }
             8 => {
@@ -1935,16 +1909,14 @@ impl SharpSM83 {
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
             }
             4 => {
-                bus.address = self.registers.stack_pointer;
-                bus.data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let data = ((self.registers.program_counter & 0xFF00u16) >> 8u16) as u8;
+                self.request_write(self.registers.stack_pointer, data, bus);
 
                 self.registers.stack_pointer = self.registers.stack_pointer.wrapping_sub(1);
             }
             8 => {
-                bus.address = self.registers.stack_pointer;
-                bus.data = (self.registers.program_counter & 0x00FFu16) as u8;
-                bus.mode = ReadWriteMode::Write;
+                let data = (self.registers.program_counter & 0x00FFu16) as u8;
+                self.request_write(self.registers.stack_pointer, data, bus);
             }
             12 => {
                 self.registers.program_counter = address;
@@ -2003,8 +1975,8 @@ impl SharpSM83 {
     fn rl_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let overflow = bus.data & 0b10000000 > 0;
@@ -2016,8 +1988,8 @@ impl SharpSM83 {
                 self.set_flag(Flags::H, false);
                 self.set_flag(Flags::C, overflow);
 
-                bus.mode = ReadWriteMode::Write;
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, bus.data, bus);
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -2045,8 +2017,8 @@ impl SharpSM83 {
     fn rrc_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let overflow = bus.data & 0b00000001 > 0;
@@ -2057,8 +2029,8 @@ impl SharpSM83 {
                 self.set_flag(Flags::H, false);
                 self.set_flag(Flags::C, overflow);
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, bus.data, bus);
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -2090,8 +2062,8 @@ impl SharpSM83 {
     fn rr_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let overflow = bus.data & 1 > 0;
@@ -2099,8 +2071,8 @@ impl SharpSM83 {
                 bus.data >>= 1;
                 bus.data |= carry_flag << 7;
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, bus.data, bus);
 
                 self.set_flag(Flags::Z, bus.data == 0);
                 self.set_flag(Flags::N, false);
@@ -2132,8 +2104,8 @@ impl SharpSM83 {
     fn bit_hl_addr(&mut self, bit: u8, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let mask = 0b00000001 << bit;
@@ -2169,8 +2141,8 @@ impl SharpSM83 {
     fn srl_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let carry = bus.data & 1 > 0;
@@ -2181,8 +2153,8 @@ impl SharpSM83 {
                 self.set_flag(Flags::H, false);
                 self.set_flag(Flags::C, carry);
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, bus.data, bus);
             }
             10 => {
                 self.phase = Phase::Fetch;
@@ -2212,16 +2184,15 @@ impl SharpSM83 {
     fn swap_hl_addr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let mut new_value = bus.data << 4;
                 new_value |= bus.data >> 4;
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.data = new_value;
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_write(address, new_value, bus);
 
                 self.set_flag(Flags::Z, new_value == 0);
                 self.set_flag(Flags::N, false);
@@ -2238,15 +2209,15 @@ impl SharpSM83 {
     fn rlc_hladdr(&mut self, bus: &mut Bus) {
         match self.current_tick {
             2 => {
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.mode = ReadWriteMode::Read;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
             }
             4 => {
                 let overflow = bus.data & 0b10000000 > 0;
 
-                bus.address = self.read_from_16_bit_register(Register16Bit::HL);
-                bus.data = bus.data.rotate_left(1);
-                bus.mode = ReadWriteMode::Write;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                let data = bus.data.rotate_left(1);
+                self.request_write(address, data, bus);
 
                 self.set_flag(Flags::Z, bus.data == 0);
                 self.set_flag(Flags::N, false);
