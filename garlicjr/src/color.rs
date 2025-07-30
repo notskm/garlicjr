@@ -17,29 +17,33 @@
     with garlicjr. If not, see <https: //www.gnu.org/licenses/>.
 */
 
-mod bootrom;
-mod bus;
-mod cartridge;
-mod color;
-mod cpu;
-mod memory;
-mod number;
-mod opcode;
-mod ppu;
-mod system;
-mod timer;
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
 
-pub use bootrom::*;
-pub use bus::*;
-pub use cartridge::Cartridge;
-pub use color::*;
-pub use cpu::*;
-pub use memory::*;
-pub use ppu::*;
-pub use system::*;
-pub use timer::Timer;
-pub use timer::TimerRegisters;
+impl Color {
+    pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
+        Color { r, g, b }
+    }
+}
 
-pub const fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rstest::rstest;
+
+    #[rstest]
+    fn should_construct_a_color_with_the_given_components(
+        #[values(0, 255, 5)] r: u8,
+        #[values(0, 255, 5)] g: u8,
+        #[values(0, 255, 5)] b: u8,
+    ) {
+        let color = Color::from_rgb(r, g, b);
+        assert_eq!(color.r, r);
+        assert_eq!(color.g, g);
+        assert_eq!(color.b, b);
+    }
 }
