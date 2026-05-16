@@ -1,15 +1,12 @@
 [workspace]
 resolver = "3"
-members = [
-    "garlicjr",
-    "garlicjr_dbg",
-]
+members = ["garlicjr", "garlicjr_dbg"]
 
 [workspace.package]
 authors = ["notskm"]
 license = "GPL-3.0-or-later"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.95"
 
 [profile.dev.package."*"]
 opt-level = 2
