@@ -8,9 +8,9 @@ rust-version.workspace = true
 
 [dependencies]
 garlicjr = { path = "../garlicjr" }
-egui = "0.34.2"
-egui_extras = "0.34.2"
-eframe = { version = "0.34.2", default-features = false, features = [
+egui = "0.34.*"
+egui_extras = "0.34.*"
+eframe = { version = "0.34.*", default-features = false, features = [
   "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
   "default_fonts", # Embed the default egui fonts.
   "glow",          # Use the glow rendering backend. Alternative: "wgpu".
@@ -18,17 +18,17 @@ eframe = { version = "0.34.2", default-features = false, features = [
   "wayland",       # To support Linux (and CI)
   "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
-log = "0.4.29"
+log = "0.4.*"
 serde = { version = "1.0.228", features = ["derive"] }
-rfd = "0.17.2"
+rfd = "0.17.*"
 web-time = "1.1.0" # Drop-in replacement for std::time for web & native
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-futures = "0.3.32"
-env_logger = "0.11.10"
+futures = "0.3.*"
+env_logger = "0.11.*"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4.50"
-web-sys = "0.3.70"
+wasm-bindgen-futures = "0.4.*"
+web-sys = "0.3.*"
