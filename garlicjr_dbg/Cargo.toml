@@ -18,15 +18,15 @@ eframe = { version = "0.34.2", default-features = false, features = [
   "wayland",       # To support Linux (and CI)
   "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
-log = "0.4.27"
-serde = { version = "1.0.219", features = ["derive"] }
-rfd = "0.15.3"
+log = "0.4.29"
+serde = { version = "1.0.228", features = ["derive"] }
+rfd = "0.17.2"
 web-time = "1.1.0" # Drop-in replacement for std::time for web & native
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-futures = "0.3.31"
-env_logger = "0.11.8"
+futures = "0.3.32"
+env_logger = "0.11.10"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
