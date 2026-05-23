@@ -22,12 +22,12 @@ use garlicjr::System;
 
 pub fn memory_table(
     id_salt: impl std::hash::Hash,
-    ctx: &egui::Context,
+    // ctx: &egui::Context,
     ui: &mut egui::Ui,
     dmg: &mut System,
 ) {
-    let font_size = ctx
-        .style()
+    let font_size = ui
+        .global_style()
         .text_styles
         .get(&egui::TextStyle::Monospace)
         .unwrap()
