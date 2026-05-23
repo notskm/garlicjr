@@ -20,7 +20,7 @@
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use crate::ui::*;
-use egui::TextureHandle;
+use egui::{TextureHandle, vec2};
 use garlicjr::*;
 use rfd::AsyncFileDialog;
 use web_time::Instant;
@@ -81,10 +81,12 @@ impl Default for GarlicJrApp {
             framebuffer: egui::ColorImage {
                 pixels: [color; 160 * 144].to_vec(),
                 size: [160, 144],
+                source_size: vec2(160f32, 144f32),
             },
             tile_data_buffer: egui::ColorImage {
                 pixels: [color; 8 * 16 * 8 * 24].to_vec(),
                 size: [8 * 16, 8 * 24],
+                source_size: vec2(8f32 * 16f32, 8f32 * 24f32),
             },
             tile_data_texture: None,
             frame_tracker: Instant::now(),
@@ -106,7 +108,7 @@ impl eframe::App for GarlicJrApp {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let elapsed_time = self.frame_tracker.elapsed();
         self.frame_tracker = Instant::now();
 
@@ -127,11 +129,11 @@ impl eframe::App for GarlicJrApp {
             }
         }
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Load ROM...").clicked() {
-                        ui.close_menu();
+                        ui.close();
 
                         let task = AsyncFileDialog::new().pick_file();
 
@@ -157,7 +159,7 @@ impl eframe::App for GarlicJrApp {
                     }
 
                     if ui.button("Load bootrom...").clicked() {
-                        ui.close_menu();
+                        ui.close();
 
                         let task = AsyncFileDialog::new().pick_file();
 
@@ -183,17 +185,17 @@ impl eframe::App for GarlicJrApp {
                     // NOTE: no File->Quit on web pages!
                     let is_web = cfg!(target_arch = "wasm32");
                     if !is_web && ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                        ui.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
                 ui.menu_button("Help", |ui| {
                     if ui.button("View License").clicked() {
                         self.license_window_open = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("About").clicked() {
                         self.about_window_open = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 ui.add_space(16.0);
@@ -206,7 +208,7 @@ impl eframe::App for GarlicJrApp {
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.heading("GarlicJr");
 
             ui.label(format!("FPS: {:.0}", 1f32 / elapsed_time.as_secs_f32(),));
@@ -224,21 +226,21 @@ impl eframe::App for GarlicJrApp {
         egui::Window::new("License")
             .scroll([false, true])
             .open(&mut self.license_window_open)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 const LICENSE_INFO: &str = include_str!("../../COPYING");
                 ui.label(LICENSE_INFO);
             });
 
         egui::Window::new("About")
             .open(&mut self.about_window_open)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.label(format!("Core version: {}", VERSION));
                 ui.label(format!("UI version: {}", VERSION));
             });
 
         egui::Window::new("Features")
             .open(&mut self.features_window_open)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 let mut always_true = true;
                 let mut always_false = false;
                 ui.checkbox(&mut always_false, "All opcodes");
@@ -264,9 +266,9 @@ impl eframe::App for GarlicJrApp {
                 })
             });
 
-        egui::Window::new("Screen").show(ctx, |ui| {
+        egui::Window::new("Screen").show(ui, |ui| {
             let texture: &mut egui::TextureHandle = self.screen_texture.get_or_insert_with(|| {
-                ui.ctx().load_texture(
+                ui.load_texture(
                     "Screen",
                     self.framebuffer.clone(),
                     egui::TextureOptions::NEAREST,
@@ -277,7 +279,7 @@ impl eframe::App for GarlicJrApp {
             ui.image((texture.id(), texture.size_vec2()));
         });
 
-        egui::Window::new("Tile Data").show(ctx, |ui| {
+        egui::Window::new("Tile Data").show(ui, |ui| {
             let texture: &mut egui::TextureHandle =
                 self.tile_data_texture.get_or_insert_with(|| {
                     ui.ctx().load_texture(
@@ -294,16 +296,16 @@ impl eframe::App for GarlicJrApp {
 
         egui::Window::new("CPU")
             .resizable([true, true])
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 cpu_gui(ui, &mut self.dmg_system, &mut self.running);
             });
 
-        egui::Window::new("Memory").show(ctx, |ui| {
-            memory_table("Memory Table", ctx, ui, &mut self.dmg_system);
+        egui::Window::new("Memory").show(ui, |ui| {
+            memory_table("Memory Table", ui, &mut self.dmg_system);
         });
 
         if self.running {
-            ctx.request_repaint();
+            ui.request_repaint();
         }
     }
 }
