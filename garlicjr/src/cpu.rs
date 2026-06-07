@@ -439,6 +439,8 @@ impl SharpSM83 {
             Opcode::RrHlAddr => self.rr_hl_addr(bus),
             Opcode::Bit(mask, register) => self.bit(mask, register),
             Opcode::BitHlAddr(mask) => self.bit_hl_addr(mask, bus),
+            Opcode::Res(bit, register) => self.res(bit, register),
+            Opcode::ResHlAddr(bit) => self.res_hl_addr(bit, bus),
             Opcode::Srl(register) => self.srl(register),
             Opcode::SrlHlAddr => self.srl_hl_addr(bus),
             Opcode::Swap(register) => self.swap(register),
@@ -2122,6 +2124,42 @@ impl SharpSM83 {
         }
     }
 
+    fn res(&mut self, bit: u8, register: Register8Bit) {
+        assert!(bit < 8);
+
+        if self.current_tick == 2 {
+            let value = self.read_from_register(register);
+            let mask = 0b11111110u8.rotate_left(bit as u32);
+
+            let new_value = value & mask;
+            self.write_to_register(register, new_value);
+
+            self.phase = Phase::Fetch;
+        }
+    }
+
+    fn res_hl_addr(&mut self, bit: u8, bus: &mut Bus) {
+        assert!(bit < 8);
+
+        match self.current_tick {
+            2 => {
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+                self.request_read(address, bus);
+            }
+            4 => {
+                let mask = 0b11111110u8.rotate_left(bit as u32);
+                let new_value = bus.data & mask;
+                let address = self.read_from_16_bit_register(Register16Bit::HL);
+
+                self.request_write(address, new_value, bus);
+            }
+            10 => {
+                self.phase = Phase::Fetch;
+            }
+            _ => (),
+        }
+    }
+
     fn srl(&mut self, register: Register8Bit) {
         if self.current_tick == 2 {
             let value = self.read_from_register(register);
@@ -2897,6 +2935,70 @@ mod tests {
     #[case::opcode_cb_7d("cb_7d.json")]
     #[case::opcode_cb_7e("cb_7e.json")]
     #[case::opcode_cb_7f("cb_7f.json")]
+    #[case::opcode_cb_80("cb_80.json")]
+    #[case::opcode_cb_81("cb_81.json")]
+    #[case::opcode_cb_82("cb_82.json")]
+    #[case::opcode_cb_83("cb_83.json")]
+    #[case::opcode_cb_84("cb_84.json")]
+    #[case::opcode_cb_85("cb_85.json")]
+    #[case::opcode_cb_86("cb_86.json")]
+    #[case::opcode_cb_87("cb_87.json")]
+    #[case::opcode_cb_88("cb_88.json")]
+    #[case::opcode_cb_89("cb_89.json")]
+    #[case::opcode_cb_8a("cb_8a.json")]
+    #[case::opcode_cb_8b("cb_8b.json")]
+    #[case::opcode_cb_8c("cb_8c.json")]
+    #[case::opcode_cb_8d("cb_8d.json")]
+    #[case::opcode_cb_8e("cb_8e.json")]
+    #[case::opcode_cb_8f("cb_8f.json")]
+    #[case::opcode_cb_90("cb_90.json")]
+    #[case::opcode_cb_91("cb_91.json")]
+    #[case::opcode_cb_92("cb_92.json")]
+    #[case::opcode_cb_93("cb_93.json")]
+    #[case::opcode_cb_94("cb_94.json")]
+    #[case::opcode_cb_95("cb_95.json")]
+    #[case::opcode_cb_96("cb_96.json")]
+    #[case::opcode_cb_97("cb_97.json")]
+    #[case::opcode_cb_98("cb_98.json")]
+    #[case::opcode_cb_99("cb_99.json")]
+    #[case::opcode_cb_9a("cb_9a.json")]
+    #[case::opcode_cb_9b("cb_9b.json")]
+    #[case::opcode_cb_9c("cb_9c.json")]
+    #[case::opcode_cb_9d("cb_9d.json")]
+    #[case::opcode_cb_9e("cb_9e.json")]
+    #[case::opcode_cb_9f("cb_9f.json")]
+    #[case::opcode_cb_a0("cb_a0.json")]
+    #[case::opcode_cb_a1("cb_a1.json")]
+    #[case::opcode_cb_a2("cb_a2.json")]
+    #[case::opcode_cb_a3("cb_a3.json")]
+    #[case::opcode_cb_a4("cb_a4.json")]
+    #[case::opcode_cb_a5("cb_a5.json")]
+    #[case::opcode_cb_a6("cb_a6.json")]
+    #[case::opcode_cb_a7("cb_a7.json")]
+    #[case::opcode_cb_a8("cb_a8.json")]
+    #[case::opcode_cb_a9("cb_a9.json")]
+    #[case::opcode_cb_aa("cb_aa.json")]
+    #[case::opcode_cb_ab("cb_ab.json")]
+    #[case::opcode_cb_ac("cb_ac.json")]
+    #[case::opcode_cb_ad("cb_ad.json")]
+    #[case::opcode_cb_ae("cb_ae.json")]
+    #[case::opcode_cb_af("cb_af.json")]
+    #[case::opcode_cb_b0("cb_b0.json")]
+    #[case::opcode_cb_b1("cb_b1.json")]
+    #[case::opcode_cb_b2("cb_b2.json")]
+    #[case::opcode_cb_b3("cb_b3.json")]
+    #[case::opcode_cb_b4("cb_b4.json")]
+    #[case::opcode_cb_b5("cb_b5.json")]
+    #[case::opcode_cb_b6("cb_b6.json")]
+    #[case::opcode_cb_b7("cb_b7.json")]
+    #[case::opcode_cb_b8("cb_b8.json")]
+    #[case::opcode_cb_b9("cb_b9.json")]
+    #[case::opcode_cb_ba("cb_ba.json")]
+    #[case::opcode_cb_bb("cb_bb.json")]
+    #[case::opcode_cb_bc("cb_bc.json")]
+    #[case::opcode_cb_bd("cb_bd.json")]
+    #[case::opcode_cb_be("cb_be.json")]
+    #[case::opcode_cb_bf("cb_bf.json")]
     fn should_pass_gameboycputtests_json_tests(#[case] test_file: &str) {
         let test_data: Vec<JsonTest> = {
             let test_filepath = Path::new(env!("CARGO_MANIFEST_DIR"))
