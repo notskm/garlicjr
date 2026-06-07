@@ -34,7 +34,7 @@ impl Default for Lcd {
 impl Lcd {
     pub const WIDTH: usize = 160;
     pub const HEIGHT: usize = 144;
-    pub const RGB_SIZE: usize = 3 * Self::WIDTH * Self::HEIGHT;
+    const RGB_SIZE: usize = 3 * Self::WIDTH * Self::HEIGHT;
 
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<(), LcdError> {
         if x >= Self::WIDTH || y >= Self::HEIGHT {
